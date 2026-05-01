@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD — Haleon Digital Avatar Chatbot</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --green: #30EA03;
+  --dark: #090B0C;
+  --card: #151A1D;
+  --card-hover: #1C2226;
+  --border: rgba(141, 151, 157, 0.22);
+  --border-active: rgba(48, 234, 3, 0.45);
+  --muted: #8D979D;
+  --text: #FFFFFF;
+  --text-readable: #D0D3D4;
+  --slate: #333F48;
+  --light-gray: #D0D3D4;
+  --mono: 'Space Mono', monospace;
+  --sans: 'Syne', sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--dark);color:var(--text);font-family:var(--sans);overflow-x:hidden;cursor:none;line-height:1.6;}
+
+/* LOADER */
+#loader{position:fixed;inset:0;z-index:99999;background:var(--dark);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;transition:opacity 0.9s ease,visibility 0.9s ease;}
+#loader.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+.ldr-mark{width:64px;height:64px;background:var(--green);border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:30px;font-weight:700;color:#000;animation:ldrpulse 1.4s ease-in-out infinite;}
+@keyframes ldrpulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(48,234,3,0.45)}50%{transform:scale(1.07);box-shadow:0 0 0 20px rgba(48,234,3,0)}}
+.ldr-bar-bg{width:200px;height:2px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;}
+.ldr-bar{height:100%;background:var(--green);border-radius:2px;animation:ldrfill 1.8s cubic-bezier(.4,0,.2,1) forwards;}
+@keyframes ldrfill{from{width:0%}to{width:100%}}
+.ldr-txt{font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);}
+
+/* CURSOR */
+#cursor{position:fixed;width:11px;height:11px;background:var(--green);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);mix-blend-mode:screen;transition:width .3s,height .3s,background .3s;}
+#cursor-ring{position:fixed;width:34px;height:34px;border:1px solid rgba(48,234,3,0.45);border-radius:50%;pointer-events:none;z-index:99997;transform:translate(-50%,-50%);transition:width .3s,height .3s,border-color .3s;}
+body:has(a:hover) #cursor,body:has(button:hover) #cursor{width:18px;height:18px;background:#fff;}
+body:has(a:hover) #cursor-ring,body:has(button:hover) #cursor-ring{width:56px;height:56px;border-color:var(--green);}
+
+/* BG CANVAS */
+#three-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+
+/* NOISE */
+body::after{content:'';position:fixed;inset:0;background:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.032'/%3E%3C/svg%3E");pointer-events:none;z-index:99996;opacity:0.25;}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;padding:16px 48px;background:rgba(9,11,12,0.85);backdrop-filter:blur(28px);border-bottom:1px solid var(--border);}
+.nav-mark{width:32px;height:32px;background:var(--green);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:700;color:#000;letter-spacing:-1px;flex-shrink:0;}
+.nav-brand{display:flex;align-items:center;gap:11px;}
+.nav-brand-text{font-size:11px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:var(--light-gray);}
+.nav-links{display:flex;gap:26px;list-style:none;}
+.nav-links a{font-size:11px;font-weight:600;letter-spacing:0.13em;text-transform:uppercase;color:var(--muted);text-decoration:none;transition:color .2s;}
+.nav-links a:hover{color:var(--green);}
+.nav-cta{font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--green);border:1px solid var(--green);padding:7px 18px;border-radius:4px;text-decoration:none;transition:all .2s;}
+.nav-cta:hover{background:var(--green);color:#000;}
+
+/* HERO */
+#hero{min-height:100vh;display:flex;align-items:center;position:relative;z-index:2;padding:120px 48px 80px;}
+.hero-content{max-width:750px;}
+.badge{display:inline-flex;align-items:center;gap:8px;background:rgba(48,234,3,0.08);border:1px solid rgba(48,234,3,0.22);border-radius:100px;padding:5px 15px;font-family:var(--mono);font-size:10px;color:var(--green);letter-spacing:0.08em;margin-bottom:26px;}
+.bdot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:bdot 1.5s ease-in-out infinite;}
+@keyframes bdot{0%,100%{opacity:1}50%{opacity:.25}}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--green);margin-bottom:12px;}
+.hero-title{font-size:clamp(58px,9vw,112px);font-weight:800;line-height:0.88;letter-spacing:-0.04em;margin-bottom:20px;}
+.hero-title .name{display:block;background:linear-gradient(130deg,#FFFFFF 0%,var(--green) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hero-title .sub{display:block;color:var(--light-gray);font-size:0.36em;font-weight:600;letter-spacing:0.02em;margin-top:14px;line-height:1.45;}
+.hero-desc{font-size:16px;line-height:1.75;color:var(--text-readable);max-width:520px;margin-bottom:38px;}
+.hero-desc strong{color:var(--text);font-weight:700;}
+.hero-stats{display:flex;gap:36px;margin-bottom:34px;}
+.hstat .num{font-size:42px;font-weight:800;letter-spacing:-0.04em;color:var(--green);line-height:1;}
+.hstat .lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-top:3px;}
+.pills{display:flex;flex-wrap:wrap;gap:7px;}
+.pill{font-family:var(--mono);font-size:10px;letter-spacing:0.05em;background:rgba(255,255,255,0.035);border:1px solid var(--border);color:var(--text-readable);padding:5px 11px;border-radius:4px;transition:all .2s;}
+.pill:hover{border-color:var(--green);color:var(--text);}
+.hero-scroll-hint{margin-top:52px;font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.12em;display:flex;align-items:center;gap:10px;opacity:0.7;}
+.scroll-line{width:32px;height:1px;background:var(--muted);}
+
+/* SECTIONS */
+section{padding:96px 48px;position:relative;z-index:2;}
+.slabel{font-family:var(--mono);font-size:10px;letter-spacing:0.25em;text-transform:uppercase;color:var(--green);margin-bottom:12px;}
+.stitle{font-size:clamp(28px,4vw,50px);font-weight:800;letter-spacing:-0.03em;line-height:1.04;margin-bottom:12px;color:var(--text);}
+.ssub{font-size:15px;color:var(--text-readable);max-width:500px;line-height:1.7;margin-bottom:48px;}
+
+/* CHALLENGE */
+#challenge{background:rgba(9,11,12,0.96);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.chal-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;overflow:hidden;margin-bottom:28px;}
+.chal-card{background:var(--card);padding:34px 28px;border:1px solid var(--border);border-radius:16px;transition:all .3s;position:relative;overflow:hidden;}
+.chal-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--green);transform:scaleX(0);transform-origin:left;transition:transform .4s;}
+.chal-card:hover::before{transform:scaleX(1);}
+.chal-card:hover{background:var(--card-hover);border-color:var(--border-active);transform:translateY(-2px);}
+.chal-icon{font-size:30px;margin-bottom:16px;display:block;}
+.chal-card h3{font-size:16px;font-weight:700;margin-bottom:9px;color:var(--text);}
+.chal-card p{font-size:13.5px;line-height:1.7;color:var(--text-readable);}
+.chal-solve{padding:26px 34px;background:rgba(48,234,3,0.04);border:1px solid var(--border-active);border-radius:14px;font-size:16px;line-height:1.65;text-align:center;}
+.chal-solve strong{color:var(--green);}
+
+/* SOLUTION */
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.feat-card{background:var(--card);border:1px solid var(--border);border-radius:15px;padding:26px 22px;transition:all .3s;}
+.feat-card:hover{transform:translateY(-6px);border-color:var(--border-active);background:var(--card-hover);}
+.feat-n{font-family:var(--mono);font-size:10px;color:var(--green);letter-spacing:0.1em;margin-bottom:12px;}
+.feat-card h3{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--text);}
+.feat-card p{font-size:13.5px;color:var(--text-readable);line-height:1.6;}
+.feat-tag{display:inline-block;margin-top:13px;font-family:var(--mono);font-size:9px;background:rgba(141,151,157,0.1);border:1px solid var(--border);color:var(--light-gray);padding:3px 8px;border-radius:3px;letter-spacing:0.05em;}
+.jo-card{grid-column:span 3;background:linear-gradient(135deg,var(--card),rgba(48,234,3,0.03));border:1px solid var(--border);border-radius:15px;padding:32px;display:flex;align-items:center;gap:32px;}
+.jo-avatar{width:68px;height:68px;background:radial-gradient(circle at 40% 35%,rgba(48,234,3,0.25),rgba(9,11,12,0.97));border:1px solid var(--border-active);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;}
+.jo-info h3{font-size:19px;font-weight:700;margin-bottom:5px;color:var(--text);}
+.jo-info p{font-size:13.5px;color:var(--text-readable);line-height:1.65;}
+.jo-badge{margin-left:auto;display:flex;align-items:center;gap:7px;background:rgba(48,234,3,0.08);border:1px solid rgba(48,234,3,0.2);border-radius:100px;padding:7px 16px;font-family:var(--mono);font-size:10px;color:var(--green);flex-shrink:0;}
+
+/* ARCHITECTURE */
+#architecture{background:rgba(9,11,12,0.96);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.arch-layers{display:flex;flex-direction:column;gap:12px;}
+.arch-row{display:flex;align-items:stretch;gap:12px;}
+.arch-lbl{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--mono);font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--green);min-width:34px;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--border);}
+.arch-chips{display:flex;gap:9px;flex:1;flex-wrap:wrap;align-items:center;padding:8px 0;}
+.chip{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:11px 16px;font-family:var(--mono);font-size:11px;color:var(--text-readable);transition:all .2s;cursor:default;}
+.chip:hover{color:var(--text);border-color:var(--border-active);background:var(--card-hover);}
+.arch-arrow{text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:4px;letter-spacing:0.05em;}
+
+/* 3D BRAIN SECTION */
+#explore{background:rgba(9,11,12,0.98);border-top:1px solid var(--border);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:96px 48px;}
+.explore-title{font-size:clamp(30px,5vw,60px);font-weight:800;letter-spacing:-0.04em;text-align:center;margin-bottom:12px;color:var(--text);}
+.explore-sub{font-size:15px;color:var(--text-readable);text-align:center;margin-bottom:44px;}
+.brain-canvas-wrap{width:min(960px,100%);height:560px;position:relative;border:1px solid var(--border);border-radius:20px;overflow:hidden;background:rgba(12,15,17,0.95);cursor:crosshair;box-shadow:0 0 100px rgba(48,234,3,0.06),inset 0 0 80px rgba(0,0,0,0.5);}
+#brain-canvas{width:100%;height:100%;display:block;}
+.node-tooltip{position:absolute;background:rgba(15,20,23,0.97);border:1px solid var(--border-active);border-radius:10px;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .18s;max-width:230px;z-index:10;line-height:1.65;backdrop-filter:blur(16px);}
+.node-tooltip.visible{opacity:1;}
+.node-tooltip strong{color:var(--green);display:block;margin-bottom:5px;font-size:12px;}
+.node-tooltip .ltag{display:inline-block;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--light-gray);background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:3px;padding:2px 7px;margin-bottom:8px;}
+.explore-hint{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-top:18px;letter-spacing:0.09em;}
+.explore-legend{display:flex;gap:22px;margin-top:16px;flex-wrap:wrap;justify-content:center;}
+.leg-item{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--text-readable);letter-spacing:0.05em;}
+.leg-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* FLOWS */
+.flows-g{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.flow-card{background:var(--card);border:1px solid var(--border);border-radius:17px;padding:30px 26px;transition:all .3s;}
+.flow-card:hover{border-color:var(--border-active);background:var(--card-hover);transform:translateY(-4px);}
+.flow-card .icon{font-size:36px;display:block;margin-bottom:16px;}
+.flow-card h3{font-size:18px;font-weight:700;margin-bottom:5px;color:var(--text);}
+.flow-steps{font-family:var(--mono);font-size:10px;color:var(--green);margin-bottom:13px;}
+.flow-eg{font-size:12.5px;color:var(--text-readable);line-height:1.6;margin-bottom:14px;font-style:italic;}
+.flow-tree{display:flex;flex-direction:column;gap:6px;}
+.ft{display:flex;align-items:center;gap:7px;font-size:11px;padding:6px 9px;background:rgba(255,255,255,0.02);border-radius:6px;border:1px solid var(--border);color:var(--text-readable);}
+.ft .d{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.yes-d{background:var(--green);}
+.no-d{background:var(--muted);}
+
+/* DEMO */
+#demo{background:rgba(9,11,12,0.98);border-top:1px solid var(--border);}
+.demo-layout{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;}
+.vid-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.vid-ph{aspect-ratio:16/9;background:linear-gradient(135deg,#0c1012,#181e21);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;position:relative;overflow:hidden;transition:background .3s;}
+.vid-ph::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at center,rgba(48,234,3,0.07),transparent 70%);}
+.vid-ph:hover{background:linear-gradient(135deg,#12181a,#1c2326);}
+.play-btn{width:64px;height:64px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#000;transition:transform .2s,box-shadow .2s;position:relative;z-index:1;}
+.vid-ph:hover .play-btn{transform:scale(1.1);box-shadow:0 0 48px rgba(48,234,3,0.5);}
+.vid-ph-lbl{font-family:var(--mono);font-size:10px;color:var(--light-gray);letter-spacing:0.08em;z-index:1;}
+.vid-input-row{display:flex;gap:9px;padding:13px;background:rgba(0,0,0,0.5);border-top:1px solid var(--border);}
+.vid-inp{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;transition:all .2s;}
+.vid-inp:focus{border-color:var(--border-active);}
+.vid-inp::placeholder{color:var(--muted);}
+.vid-btn{background:var(--green);color:#000;border:none;border-radius:7px;padding:8px 16px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:0.08em;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.vid-btn:hover{opacity:0.84;transform:translateY(-1px);}
+.vid-iframe{display:none;width:100%;aspect-ratio:16/9;border:none;}
+.vid-secondary-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin:16px 0 9px;}
+.ds{display:flex;gap:16px;padding:18px 0;border-bottom:1px solid var(--border);}
+.ds:last-child{border-bottom:none;}
+.dsn{font-family:var(--mono);font-size:10px;color:var(--green);background:rgba(48,234,3,0.08);border:1px solid var(--border-active);border-radius:4px;padding:3px 8px;flex-shrink:0;height:fit-content;font-weight:700;}
+.ds h4{font-size:14.5px;font-weight:700;margin-bottom:4px;color:var(--text);}
+.ds p{font-size:12.5px;color:var(--text-readable);line-height:1.65;}
+
+/* VOICE */
+.voice-g{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.vc{background:var(--card);border:1px solid var(--border);border-radius:17px;padding:30px;}
+.vc h3{font-size:16px;font-weight:700;margin-bottom:20px;color:var(--text);}
+.mm{display:flex;gap:13px;padding:13px 0;border-bottom:1px solid var(--border);}
+.mm:last-of-type{border-bottom:none;}
+.mm-icon{width:32px;height:32px;background:rgba(48,234,3,0.08);border:1px solid var(--border-active);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--green);flex-shrink:0;}
+.mm-name{font-size:13.5px;font-weight:700;margin-bottom:2px;color:var(--text);}
+.mm-desc{font-size:11.5px;color:var(--text-readable);line-height:1.55;}
+.vc-divider{height:1px;background:var(--border);margin:16px 0;}
+.vc-detail{font-family:var(--mono);font-size:10px;color:var(--light-gray);line-height:2;}
+.is{display:flex;align-items:center;gap:12px;padding:11px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px solid var(--border);margin-bottom:6px;color:var(--text-readable);}
+.is-icon{width:34px;height:34px;background:rgba(48,234,3,0.08);border-radius:7px;border:1px solid var(--border-active);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--green);flex-shrink:0;}
+.is-t strong{font-size:13px;color:var(--text);}
+.is-t span{font-size:11px;color:var(--text-readable);display:block;}
+.ia{text-align:center;font-size:16px;color:var(--green);margin:2px 0;}
+.id-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px;}
+.id{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:9px;padding:11px;text-align:center;transition:all .2s;cursor:default;}
+.id:hover{border-color:var(--border-active);background:var(--card-hover);}
+.id .e{font-size:20px;display:block;margin-bottom:5px;}
+.id .n{font-size:10px;font-weight:700;color:var(--text);}
+.id .k{font-size:9px;color:var(--text-readable);margin-top:2px;font-family:var(--mono);}
+
+/* SUBTITLE DEMO */
+.sub-demo{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:26px;font-family:var(--mono);margin-top:32px;}
+.sub-hdr{font-size:10px;color:var(--muted);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:16px;padding-bottom:13px;border-bottom:1px solid var(--border);}
+.sub-line{margin-bottom:9px;animation:subin .45s ease-out both;}
+@keyframes subin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.sub-line.user{color:var(--light-gray);font-size:12px;}
+.sub-line.av{color:var(--text);font-size:12px;}
+.sub-line .spk{color:var(--green);font-size:10px;margin-bottom:2px;font-weight:700;}
+.tcursor{display:inline-block;width:2px;height:12px;background:var(--green);animation:cur 1s ease-in-out infinite;vertical-align:middle;margin-left:2px;}
+@keyframes cur{0%,100%{opacity:1}50%{opacity:0}}
+
+/* COMMANDS */
+#commands{background:rgba(9,11,12,0.96);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.cmd-g{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+.cmd-table{background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden;}
+.cmd-th{background:rgba(48,234,3,0.06);border-bottom:1px solid var(--border);padding:13px 20px;font-family:var(--mono);font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--green);font-weight:700;}
+.cmd-row{display:flex;justify-content:space-between;align-items:center;padding:11px 20px;border-bottom:1px solid var(--border);transition:all .2s;}
+.cmd-row:last-child{border-bottom:none;}
+.cmd-row:hover{background:var(--card-hover);}
+.cmd-key{font-family:var(--mono);font-size:10px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:3px;padding:3px 8px;color:var(--text-readable);}
+.cmd-act{font-size:12.5px;color:var(--text);}
+.vt-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;}
+.vt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
+.vt{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;transition:all .2s;color:var(--text-readable);}
+.vt:hover{border-color:var(--border-active);background:var(--card-hover);color:var(--text);}
+.vt-ph{font-family:var(--mono);font-size:10.5px;color:var(--green);}
+.vt-fl{font-size:10px;color:var(--light-gray);}
+.scripts-g{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:44px;}
+.sc-pill{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-family:var(--mono);font-size:9.5px;color:var(--text-readable);transition:all .2s;cursor:default;}
+.sc-pill:hover{color:var(--green);border-color:var(--border-active);background:var(--card-hover);}
+
+/* TROUBLESHOOTING / FAQ (ADDITIONAL SECTION) */
+#faq{background:rgba(9,11,12,0.96);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.faq-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+.faq-card{background:var(--card);border:1px solid var(--border);border-radius:15px;padding:24px;transition:all .3s;}
+.faq-card:hover{border-color:var(--border-active);background:var(--card-hover);}
+.faq-card h3{font-size:15px;font-weight:700;margin-bottom:10px;color:var(--text);display:flex;align-items:center;gap:8px;}
+.faq-card h3 span{color:var(--green);}
+.faq-card p{font-size:13.5px;color:var(--text-readable);line-height:1.6;}
+
+/* OUTRO */
+#outro{min-height:80vh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;z-index:2;overflow:hidden;}
+.outro-wrap{position:relative;z-index:2;}
+.outro-title{font-size:clamp(48px,9vw,100px);font-weight:800;letter-spacing:-0.04em;line-height:0.91;margin-bottom:26px;}
+.outro-title .l1{display:block;color:var(--light-gray);}
+.outro-title .l2{display:block;background:linear-gradient(135deg,var(--green),#FFFFFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.outro-title .l3{display:block;color:var(--text);}
+.outro-stats{display:flex;justify-content:center;gap:52px;margin-top:52px;}
+.ost .icon{font-size:24px;display:block;margin-bottom:6px;}
+.ost .num{font-size:42px;font-weight:800;color:var(--text);letter-spacing:-0.04em;line-height:1;}
+.ost .lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-top:3px;}
+.outro-line{width:1px;height:40px;background:var(--border);align-self:center;}
+.outro-cred{margin-top:64px;font-family:var(--mono);font-size:11px;color:var(--text-readable);letter-spacing:0.08em;line-height:2;}
+.outro-cred strong{color:var(--text);}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .65s ease,transform .65s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:var(--dark);}
+::-webkit-scrollbar-thumb{background:rgba(48,234,3,0.3);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="ldr-mark">SD</div>
+  <div class="ldr-bar-bg"><div class="ldr-bar"></div></div>
+  <div class="ldr-txt">Initialising...</div>
+</div>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- THREE.JS BG CANVAS -->
+<canvas id="three-canvas"></canvas>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-mark">SD</div>
+    <span class="nav-brand-text">Haleon · Digital Avatar</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="#challenge">Problem</a></li>
+    <li><a href="#solution">Solution</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#explore">3D Brain</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+  <a href="#demo" class="nav-cta">Watch Demo</a>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-content">
+    <div class="badge"><div class="bdot"></div>LIVE — Voice Ready · Kiosk Deployed</div>
+    <p class="eyebrow">Haleon Assistant</p>
+    <h1 class="hero-title">
+      <span class="name">Digital Avatar</span>
+      <span class="sub">Unity3D Health Assistant · Real-World Kiosk Deployment</span>
+    </h1>
+    <p class="hero-desc"><strong>A voice-driven, conversational AI health advisor built entirely in Unity3D. Guides every shopper to the right Haleon product securely and instantly.</strong></p>
+    <div class="hero-stats">
+      <div class="hstat"><div class="num">22</div><div class="lbl">C# Scripts</div></div>
+      <div class="hstat"><div class="num">3</div><div class="lbl">Health Flows</div></div>
+      <div class="hstat"><div class="num">4</div><div class="lbl">Mic Modes</div></div>
+      <div class="hstat"><div class="num">100%</div><div class="lbl">Voice Driven</div></div>
+    </div>
+    <div class="pills">
+      <span class="pill">Unity3D</span>
+      <span class="pill">C#</span>
+      <span class="pill">Windows Speech API</span>
+      <span class="pill">Cinemachine</span>
+      <span class="pill">TextMeshPro</span>
+      <span class="pill">Deepak</span>
+    </div>
+    <div class="hero-scroll-hint"><div class="scroll-line"></div>Scroll to explore</div>
+  </div>
+</section>
+
+<!-- CHALLENGE -->
+<section id="challenge">
+  <div class="slabel reveal">01 — Problem</div>
+  <h2 class="stitle reveal">The Challenge</h2>
+  <p class="ssub reveal">Retail health advisors can't scale. Shoppers need consistent, 24/7 guidance — static posters can't deliver it.</p>
+  <div class="chal-grid reveal">
+    <div class="chal-card"><span class="chal-icon">⚠️</span><h3>No Consistent Guidance</h3><p>Shoppers asking about Sensodyne, Panadol, or Voltaren get inconsistent advice depending on who's available — or no advice at all.</p></div>
+    <div class="chal-card"><span class="chal-icon">🕐</span><h3>No 24/7 Availability</h3><p>Human pharmacists aren't always present, especially in large retail environments. The gap is costly and the need is constant.</p></div>
+    <div class="chal-card"><span class="chal-icon">🌳</span><h3>Complex Symptom Trees</h3><p>Oral care, cold &amp; flu, and migraine each need multi-step diagnostic flows — too complex for a simple FAQ, too nuanced for a poster.</p></div>
+  </div>
+  <div class="chal-solve reveal"><strong>Digital Avatar</strong> solves all three — a fully interactive, voice-activated digital health avatar that scales infinitely, never sleeps, and guides every shopper to the right product.</div>
+</section>
+
+<!-- SOLUTION -->
+<section id="solution">
+  <div class="slabel reveal">02 — Solution</div>
+  <h2 class="stitle reveal">Meet Digital Avatar</h2>
+  <p class="ssub reveal">A real-time Unity3D avatar powered by voice and intent matching — six core systems working as one.</p>
+  <div class="feat-grid reveal">
+    <div class="feat-card"><div class="feat-n">— 01</div><h3>Voice Input</h3><p>Listens via Windows Speech API with 4 mic modes: Off, Always-On, Push-to-Talk, and Voice Activation with adaptive noise thresholds.</p><span class="feat-tag">WindowsSpeechToText.cs</span></div>
+    <div class="feat-card"><div class="feat-n">— 02</div><h3>Intent Matching</h3><p>Keyword scoring detects Oral Care / Cold &amp; Flu / Migraine from natural speech with tie-breaking logic for ambiguous inputs.</p><span class="feat-tag">IntentMatcher.cs</span></div>
+    <div class="feat-card"><div class="feat-n">— 03</div><h3>Guided Flows</h3><p>Multi-step yes/no question trees guide users through up to 10 Q&amp;A steps per health domain to the right Haleon product.</p><span class="feat-tag">NPCResponseController.cs</span></div>
+    <div class="feat-card"><div class="feat-n">— 04</div><h3>Live Subtitles</h3><p>Animated typed subtitles sync to audio with fade in/out transitions. Letter mode or word mode, regex-split per sentence.</p><span class="feat-tag">SubtitleUI.cs</span></div>
+    <div class="feat-card"><div class="feat-n">— 05</div><h3>Product Popups</h3><p>Contextual product images (Sensodyne, Panadol, Voltaren) appear at the right moment via PopupImageUI with 4s fade cycle.</p><span class="feat-tag">PopupImageUI.cs</span></div>
+    <div class="feat-card"><div class="feat-n">— 06</div><h3>Camera System</h3><p>Cinemachine multi-angle cameras switch for cinematic presentation. Single button cycles through all virtual camera angles.</p><span class="feat-tag">CinemachineCameraSwitcher.cs</span></div>
+    <div class="jo-card">
+      <div class="jo-avatar">🤖</div>
+      <div class="jo-info">
+        <h3>Haleon Health Assistant</h3>
+        <p>Built entirely in Unity3D — no external AI API at runtime. Intent matching runs locally, flows are defined in C#, voice is processed by Windows Speech API. Fully offline capable.</p>
+      </div>
+      <div class="jo-badge"><div class="bdot"></div>LIVE — Voice Ready</div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture">
+  <div class="slabel reveal">03 — Architecture</div>
+  <h2 class="stitle reveal">System Architecture</h2>
+  <p class="ssub reveal">How all 22 scripts connect — from voice capture through intent, flow, output, and system layers.</p>
+  <div class="arch-layers reveal">
+    <div class="arch-row"><div class="arch-lbl">Input</div><div class="arch-chips"><div class="chip">WindowsSpeechToText</div><div class="chip">SpeechInputManager</div><div class="chip">MicDeviceManager</div><div class="chip">MicPanelToggle</div></div></div>
+    <div class="arch-arrow">↓ &nbsp;User speaks → Input Layer captures and sends recognised text</div>
+    <div class="arch-row"><div class="arch-lbl">Brain</div><div class="arch-chips"><div class="chip">IntentMatcher</div><div class="chip">IntentType</div><div class="chip">NPCResponseController</div><div class="chip">NPCResponseControl</div></div></div>
+    <div class="arch-arrow">↓ &nbsp;Brain matches intent → Flow guides user through Q&amp;A tree</div>
+    <div class="arch-row"><div class="arch-lbl">Flow</div><div class="arch-chips"><div class="chip">ConversationState</div><div class="chip">SimpleTextMatcher</div><div class="chip">ManualDemoController</div></div></div>
+    <div class="arch-arrow">↓ &nbsp;Output renders subtitles, popups, and video to screen</div>
+    <div class="arch-row"><div class="arch-lbl">Output</div><div class="arch-chips"><div class="chip">SubtitleUI</div><div class="chip">SubtitleItemUI</div><div class="chip">PopupImageUI</div><div class="chip">PlayVideoManager</div></div></div>
+    <div class="arch-arrow">↓ &nbsp;System manages display, camera angles, and resolution</div>
+    <div class="arch-row"><div class="arch-lbl">System</div><div class="arch-chips"><div class="chip">CinemachineCameraSwitcher</div><div class="chip">AnimOpenClose</div><div class="chip">DesktopDisplayManager</div><div class="chip">Resolutions</div><div class="chip">SceneLoader</div></div></div>
+  </div>
+</section>
+
+<!-- 3D INTERACTIVE BRAIN -->
+<section id="explore">
+  <div class="slabel" style="text-align:center">04 — Interactive 3D</div>
+  <h2 class="explore-title reveal">Neural Architecture</h2>
+  <p class="explore-sub reveal">Every node is a real C# script. Hover to inspect. Drag to rotate. Scroll to zoom.</p>
+  <div class="brain-canvas-wrap reveal" id="brainWrap">
+    <canvas id="brain-canvas"></canvas>
+    <div id="node-tooltip" class="node-tooltip"></div>
+  </div>
+  <p class="explore-hint">DRAG TO ROTATE &nbsp;·&nbsp; SCROLL TO ZOOM &nbsp;·&nbsp; HOVER NODES TO INSPECT</p>
+  <div class="explore-legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#30EA03"></div>Brain / Intent</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#FFFFFF"></div>Input Layer</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#8D979D"></div>Flow Layer</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#D0D3D4"></div>Output Layer</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#333F48"></div>System Layer</div>
+  </div>
+</section>
+
+<!-- FLOWS -->
+<section id="flows">
+  <div class="slabel reveal">05 — Conversation Flows</div>
+  <h2 class="stitle reveal">Guided Health Flows</h2>
+  <p class="ssub reveal">Three health domains, each with up to 10 multi-step yes/no question trees guiding users to the right Haleon product.</p>
+  <div class="flows-g reveal">
+    <div class="flow-card">
+      <span class="icon">🦷</span>
+      <h3>Oral Care</h3>
+      <div class="flow-steps">Up to 10 Q&amp;A steps</div>
+      <div class="flow-eg">"Do you have sensitive teeth?" → Yes/No branch → Sensodyne recommendation</div>
+      <div class="flow-tree">
+        <div class="ft"><span class="d yes-d"></span>Yes → Next step or product recommendation</div>
+        <div class="ft"><span class="d no-d"></span>No → Skip branch or exit flow</div>
+      </div>
+    </div>
+    <div class="flow-card">
+      <span class="icon">🤧</span>
+      <h3>Cold &amp; Flu</h3>
+      <div class="flow-steps">Up to 10 Q&amp;A steps</div>
+      <div class="flow-eg">Fever + runny nose detected → Panadol / Theraflu guidance flow</div>
+      <div class="flow-tree">
+        <div class="ft"><span class="d yes-d"></span>Yes → Next step or product recommendation</div>
+        <div class="ft"><span class="d no-d"></span>No → Skip branch or exit flow</div>
+      </div>
+    </div>
+    <div class="flow-card">
+      <span class="icon">🧠</span>
+      <h3>Migraine</h3>
+      <div class="flow-steps">Up to 10 Q&amp;A steps</div>
+      <div class="flow-eg">Throbbing headache + nausea → Migraine-specific product recommendation</div>
+      <div class="flow-tree">
+        <div class="ft"><span class="d yes-d"></span>Yes → Next step or product recommendation</div>
+        <div class="ft"><span class="d no-d"></span>No → Skip branch or exit flow</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO -->
+<section id="demo">
+  <div class="slabel reveal">06 — Demo</div>
+  <h2 class="stitle reveal">Live Demo Flow</h2>
+  <p class="ssub reveal">Paste your YouTube or video link below to embed the live demo. Enter key supported.</p>
+  <div class="demo-layout reveal">
+    <div>
+      <div class="vid-wrap">
+        <div class="vid-ph" id="vph1">
+          <div class="play-btn">▶</div>
+          <div class="vid-ph-lbl">PASTE YOUR DEMO VIDEO LINK BELOW</div>
+        </div>
+        <iframe id="vi1" class="vid-iframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+        <div class="vid-input-row">
+          <input type="text" class="vid-inp" id="vurl1" placeholder="https://www.youtube.com/watch?v=..." />
+          <button class="vid-btn" onclick="loadVid(1)">LOAD</button>
+        </div>
+      </div>
+      <div class="vid-secondary-label">Secondary Demo / B-Roll</div>
+      <div class="vid-wrap">
+        <div class="vid-ph" id="vph2">
+          <div class="play-btn">▶</div>
+          <div class="vid-ph-lbl">SECONDARY VIDEO SLOT</div>
+        </div>
+        <iframe id="vi2" class="vid-iframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+        <div class="vid-input-row">
+          <input type="text" class="vid-inp" id="vurl2" placeholder="https://www.youtube.com/watch?v=..." />
+          <button class="vid-btn" onclick="loadVid(2)">LOAD</button>
+        </div>
+      </div>
+    </div>
+    <div class="demo-steps">
+      <div class="ds"><span class="dsn">01</span><div><h4>Splash / Video</h4><p>Intro video plays → PlayVideoManager auto-loads main scene after N seconds.</p></div></div>
+      <div class="ds"><span class="dsn">02</span><div><h4>Avatar Idle</h4><p>Josephine stands idle. Subtitle panel visible. Mic mode toggled between 4 states.</p></div></div>
+      <div class="ds"><span class="dsn">03</span><div><h4>User Speaks</h4><p>"I have a headache" → DictationRecognizer captures → IntentMatcher fires <em>Migraine</em>.</p></div></div>
+      <div class="ds"><span class="dsn">04</span><div><h4>Flow Starts</h4><p>NPCResponseController begins migraine flow. Avatar animates. Subtitles type letter by letter.</p></div></div>
+      <div class="ds"><span class="dsn">05</span><div><h4>Yes / No Loop</h4><p>User answers yes/no. Each branch leads to next step or product recommendation.</p></div></div>
+      <div class="ds"><span class="dsn">06</span><div><h4>Product Popup</h4><p>PopupImageUI fades in product image (Panadol / Sensodyne) for 4 seconds at key steps.</p></div></div>
+      <div class="ds"><span class="dsn">07</span><div><h4>Flow Exit</h4><p>"Let me know if there's anything else" → flow resets → avatar returns to idle.</p></div></div>
+      <div class="ds"><span class="dsn">08</span><div><h4>Camera Switch</h4><p>Presenter hits Switch → Cinemachine cuts to new angle for audience impact.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- TROUBLESHOOTING / FAQ -->
+<section id="faq">
+  <div class="slabel reveal">07 — Context</div>
+  <h2 class="stitle reveal">Frequently Asked Questions</h2>
+  <p class="ssub reveal">Common operational and technical answers for deploying the chatbot in a retail kiosk environment.</p>
+  <div class="faq-grid reveal">
+    <div class="faq-card">
+      <h3><span>01.</span> How does offline mode work?</h3>
+      <p>The entire language matching runs in local keyword arrays via <code>IntentMatcher.cs</code>. Speech-to-text uses the built-in Windows dictation engine locally, removing server latency completely.</p>
+    </div>
+    <div class="faq-card">
+      <h3><span>02.</span> How accurate is the mic input in loud spaces?</h3>
+      <p>By sampling environmental ambient audio for 2 seconds at start, Josephine sets a tailored volume threshold. This mitigates extraneous chatter in busy shopping aisles.</p>
+    </div>
+    <div class="faq-card">
+      <h3><span>03.</span> Can we customize the diagnosis paths?</h3>
+      <p>Yes. The scriptable object framework allows non-technical designers to add branches, alter questions, or insert products through an intuitive C# data array configuration.</p>
+    </div>
+    <div class="faq-card">
+      <h3><span>04.</span> What about other Haleon products?</h3>
+      <p>Additional health domains can easily be included by appending keys in <code>IntentMatcher.cs</code> and connecting new dialogue sequences in <code>NPCResponseController.cs</code>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- OUTRO -->
+<section id="outro">
+  <div class="outro-wrap reveal">
+    <h2 class="outro-title"><span class="l1">Built.</span><span class="l2">Deployed.</span><span class="l3">Ready.</span></h2>
+    <div class="outro-stats">
+      <div class="ost"><span class="icon">🎙</span><div class="num">22</div><div class="lbl">C# Scripts</div></div>
+      <div class="outro-line"></div>
+      <div class="ost"><span class="icon">🧠</span><div class="num">3</div><div class="lbl">Health Flows</div></div>
+      <div class="outro-line"></div>
+      <div class="ost"><span class="icon">🖥</span><div class="num">4</div><div class="lbl">Input Methods</div></div>
+      <div class="outro-line"></div>
+      <div class="ost"><span class="icon">💊</span><div class="num">∞</div><div class="lbl">Scalability</div></div>
+    </div>
+    <div class="outro-cred"> Digital Avatar Chatbot · Haleon SSL<br>
+      <strong>Sai Deepak</strong> · Unity3D / C# / Windows Speech API / Cinemachine / TextMeshPro
+    </div>
+  </div>
+</section>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// LOADER
+// ═══════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('loader').classList.add('hidden');
+  }, 1000);
+});
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOM CURSOR
+// ═══════════════════════════════════════════════════════════
+const cursor = document.getElementById('cursor');
+const cursorRing = document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove', e => {
+  mx=e.clientX; my=e.clientY;
+  cursor.style.left=mx+'px'; cursor.style.top=my+'px';
+});
+(function animRing(){
+  rx+=(mx-rx)*0.11; ry+=(my-ry)*0.11;
+  cursorRing.style.left=rx+'px'; cursorRing.style.top=ry+'px';
+  requestAnimationFrame(animRing);
+})();
+
+// ═══════════════════════════════════════════════════════════
+// BACKGROUND THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════
+const bgCanvas = document.getElementById('three-canvas');
+const bgRenderer = new THREE.WebGLRenderer({canvas:bgCanvas,alpha:true,antialias:true});
+bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+bgRenderer.setSize(window.innerWidth,window.innerHeight);
+
+const bgScene = new THREE.Scene();
+const bgCamera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
+bgCamera.position.z = 5;
+
+// Particle field with mouse-reactive shader
+const PC = 2400;
+const pGeo = new THREE.BufferGeometry();
+const pPos = new Float32Array(PC*3);
+const pSz  = new Float32Array(PC);
+for(let i=0;i<PC;i++){
+  pPos[i*3]  =(Math.random()-.5)*26;
+  pPos[i*3+1]=(Math.random()-.5)*20;
+  pPos[i*3+2]=(Math.random()-.5)*14;
+  pSz[i]=Math.random()*2+0.3;
+}
+pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+pGeo.setAttribute('size',new THREE.BufferAttribute(pSz,1));
+
+const pMat = new THREE.ShaderMaterial({
+  uniforms:{uTime:{value:0},uMouse:{value:new THREE.Vector2(0,0)},uColor:{value:new THREE.Color('#30EA03')}},
+  vertexShader:`
+    attribute float size;
+    uniform float uTime;
+    uniform vec2 uMouse;
+    void main(){
+      vec3 pos=position;
+      float dist=length(pos.xy-uMouse*9.0);
+      float rep=smoothstep(3.5,0.0,dist)*0.55;
+      pos.xy+=normalize(pos.xy-uMouse*9.0)*rep;
+      pos.y+=sin(uTime*.35+pos.x*.28)*.14;
+      pos.x+=cos(uTime*.28+pos.z*.36)*.09;
+      vec4 mv=modelViewMatrix*vec4(pos,1.0);
+      gl_PointSize=size*(290.0/-mv.z);
+      gl_Position=projectionMatrix*mv;
+    }`,
+  fragmentShader:`
+    uniform vec3 uColor;
+    void main(){
+      float d=length(gl_PointCoord-.5);
+      if(d>.5)discard;
+      float a=pow(1.0-d*2.0,2.0);
+      gl_FragColor=vec4(uColor,a*0.35);
+    }`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending
+});
+const particles = new THREE.Points(pGeo,pMat);
+bgScene.add(particles);
+
+// Wireframe avatar sphere (right side)
+const sGeo = new THREE.SphereGeometry(1.5,34,34);
+const sMat = new THREE.MeshBasicMaterial({color:0x30EA03,wireframe:true,transparent:true,opacity:0.065});
+const sphere = new THREE.Mesh(sGeo,sMat);
+sphere.position.set(4,0,0);
+bgScene.add(sphere);
+
+const sMat2 = new THREE.MeshBasicMaterial({color:0x090B0C,transparent:true,opacity:0.94});
+const inner = new THREE.Mesh(new THREE.SphereGeometry(0.95,32,32),sMat2);
+inner.position.copy(sphere.position);
+bgScene.add(inner);
+
+const mkRing=(r,tx,c,o)=>{
+  const m=new THREE.Mesh(new THREE.TorusGeometry(r,.006,8,90),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:o}));
+  m.rotation.x=tx; m.position.copy(sphere.position); return m;
+};
+const r1=mkRing(2,Math.PI/2,0x30EA03,.42);
+const r2=mkRing(2.5,Math.PI/3,0x30EA03,.2);
+const r3=mkRing(3,Math.PI/6,0x8D979D,.14);
+bgScene.add(r1,r2,r3);
+
+const orbs=[];
+for(let i=0;i<10;i++){
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.05,8,8),new THREE.MeshBasicMaterial({color:0x30EA03,transparent:true,opacity:.75}));
+  bgScene.add(m);
+  orbs.push({mesh:m,phase:(i/10)*Math.PI*2,radius:2+(i%3)*.5});
+}
+
+const grid=new THREE.GridHelper(32,32,0x333F48,0x151A1D);
+grid.position.y=-4.5; grid.material.transparent=true; grid.material.opacity=.18;
+bgScene.add(grid);
+
+let bgMX=0,bgMY=0,scrollY=0;
+document.addEventListener('mousemove',e=>{
+  bgMX=(e.clientX/window.innerWidth-.5)*2;
+  bgMY=-(e.clientY/window.innerHeight-.5)*2;
+  pMat.uniforms.uMouse.value.set(bgMX,bgMY);
+});
+window.addEventListener('scroll',()=>{ scrollY=window.scrollY; });
+
+const bgClock=new THREE.Clock();
+(function bgLoop(){
+  requestAnimationFrame(bgLoop);
+  const t=bgClock.getElapsedTime();
+  pMat.uniforms.uTime.value=t;
+  sphere.rotation.y=t*.17; sphere.rotation.x=t*.07;
+  inner.rotation.copy(sphere.rotation);
+  r1.rotation.z=t*.28; r2.rotation.z=-t*.18; r3.rotation.z=t*.11;
+  orbs.forEach((o,i)=>{
+    const a=o.phase+t*(.45+i*.04);
+    o.mesh.position.set(4+Math.cos(a)*o.radius,Math.sin(a*.7)*.55,Math.sin(a)*o.radius);
+  });
+  const sf=scrollY/(document.body.scrollHeight-window.innerHeight||1);
+  bgCamera.position.y=sf*-3.5;
+  bgCamera.position.x=bgMX*.28;
+  bgCamera.lookAt(0,bgCamera.position.y,0);
+  const sp=sphere.position;
+  sp.x=4+bgMX*.14; sp.y=bgMY*.14;
+  inner.position.copy(sp);
+  r1.position.copy(sp); r2.position.copy(sp); r3.position.copy(sp);
+  bgRenderer.render(bgScene,bgCamera);
+})();
+
+window.addEventListener('resize',()=>{
+  bgCamera.aspect=window.innerWidth/window.innerHeight;
+  bgCamera.updateProjectionMatrix();
+  bgRenderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+// ═══════════════════════════════════════════════════════════
+// INTERACTIVE BRAIN CANVAS
+// ═══════════════════════════════════════════════════════════
+const bCanvas=document.getElementById('brain-canvas');
+const bRenderer=new THREE.WebGLRenderer({canvas:bCanvas,alpha:true,antialias:true});
+bRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+
+const bScene=new THREE.Scene();
+const bCam=new THREE.PerspectiveCamera(52,1,0.1,100);
+bCam.position.set(0,0,10);
+
+// Node definitions
+const ND=[
+  {p:[0,0,0],     l:'IntentMatcher',          ly:'Brain',  d:'Core scoring engine. Normalises input, scores per-domain keywords, applies tie-breaking logic to route Oral / Cold / Migraine.',c:0x30EA03,s:.24},
+  {p:[-3.6,2.1,.6],l:'WindowsSpeechToText',   ly:'Input',  d:'DictationRecognizer via Windows.Speech. GetMicLevel() powers waveform UI. Auto-restarts on error. 0.15s send delay.',c:0xFFFFFF,s:.16},
+  {p:[-3.3,.5,-.6],l:'SpeechInputManager',    ly:'Input',  d:'Coordinates mic mode state machine (Off/AlwaysOn/PushToTalk/VoiceActivation). Bridges STT output to IntentMatcher.',c:0xFFFFFF,s:.14},
+  {p:[-3.6,-1.2,.3],l:'MicDeviceManager',     ly:'Input',  d:'Hot-swap microphone devices at runtime. Auto-refreshes device list every 2 seconds without restarting the recognizer.',c:0xFFFFFF,s:.13},
+  {p:[-2.9,-2.6,0], l:'MicPanelToggle',       ly:'Input',  d:'UI control that cycles mic modes. Shows current mode label. Persists state across scene reloads.',c:0xFFFFFF,s:.12},
+  {p:[0,3,.9],      l:'NPCResponseController',ly:'Flow',   d:'Three health domains, up to 10 Q&A steps each. Reads NPCResponseData arrays. Routes Yes/No branches. Fires PopupImageUI at key steps.',c:0x8D979D,s:.18},
+  {p:[.6,-3,-.6],   l:'ConversationState',    ly:'Flow',   d:'Tracks current flow position, step index, active domain, and full intent history for the session.',c:0x8D979D,s:.15},
+  {p:[-.6,0,3.4],   l:'ManualDemoController', ly:'Flow',   d:'Keyboard/Gamepad/Mouse/Touch input handler. 12s idle timeout auto-plays steps. Supports Space/Enter/Arrow/Esc/Gamepad.',c:0x8D979D,s:.14},
+  {p:[3.3,1.9,-.4], l:'SubtitleUI',           ly:'Output', d:'Letter or word mode typing animation with configurable speed. Regex-splits on . ! ? for per-sentence display. Fade in/out transitions.',c:0xD0D3D4,s:.17},
+  {p:[3.6,-.5,.9],  l:'PopupImageUI',         ly:'Output', d:'Fades in product sprite (Sensodyne, Panadol, Voltaren) at key flow steps. 4s display, smooth alpha fade. Driven by NPCResponseController.',c:0xD0D3D4,s:.15},
+  {p:[3.1,-2.3,0],  l:'PlayVideoManager',     ly:'Output', d:'Delays N seconds then auto-loads Scene 1. Used for intro splash → main scene transition. Configurable delay in Inspector.',c:0xD0D3D4,s:.13},
+  {p:[1.6,.6,-3.2], l:'CinemachineCameraSwitcher',ly:'System',d:'Array of Cinemachine virtual cameras. Single button cycles angles. First cam auto-enabled on Awake(). Smooth blending.',c:0x333F48,s:.16},
+  {p:[-1.6,-.9,-3.2],l:'DesktopDisplayManager',ly:'System',d:'Resolution and refresh-rate dropdowns. 3 screen modes: Windowed / Borderless Fullscreen / Exclusive Fullscreen.',c:0x333F48,s:.14},
+  {p:[0,0,-3.8],    l:'AnimOpenClose',         ly:'System', d:'Expand/collapse animation for PPT panel, Camera panel, and Switch control panels. Smooth lerp-based open/close.',c:0x333F48,s:.12},
+];
+
+const nodeGroup=new THREE.Group();
+const nodeMeshes=[];
+
+ND.forEach(n=>{
+  const geo=new THREE.SphereGeometry(n.s,22,22);
+  const mat=new THREE.MeshBasicMaterial({color:n.c,transparent:true,opacity:.9});
+  const mesh=new THREE.Mesh(geo,mat);
+  mesh.position.set(...n.p);
+  mesh.userData={...n};
+  nodeGroup.add(mesh);
+  nodeMeshes.push(mesh);
+
+  // glow halo
+  const rg=new THREE.RingGeometry(n.s+.05,n.s+.12,32);
+  const rm=new THREE.MeshBasicMaterial({color:n.c,transparent:true,opacity:.2,side:THREE.DoubleSide});
+  const ring=new THREE.Mesh(rg,rm);
+  ring.position.set(...n.p);
+  nodeGroup.add(ring);
+
+  // pulse ring
+  const pr=new THREE.Mesh(new THREE.RingGeometry(n.s,n.s+.025,32),new THREE.MeshBasicMaterial({color:n.c,transparent:true,opacity:.65,side:THREE.DoubleSide}));
+  pr.position.set(...n.p);
+  pr.userData.pulseRing=true;
+  pr.userData.phase=Math.random()*Math.PI*2;
+  nodeGroup.add(pr);
+});
+
+// Connection lines
+[[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[0,8],[0,9],[0,10],[0,11],[0,12],[0,13],
+ [1,2],[2,3],[3,4],[5,6],[5,8],[8,9],[9,10],[11,12],[12,13],[7,11],[6,13],[1,5],[4,10]
+].forEach(([a,b])=>{
+  if(!ND[a] || !ND[b]) return;
+  const pa=new THREE.Vector3(...ND[a].p), pb=new THREE.Vector3(...ND[b].p);
+  const pts=[];
+  for(let i=0;i<=24;i++){
+    const t=i/24;
+    const m=pa.clone().lerp(pb,t);
+    m.y+=Math.sin(t*Math.PI)*.08;
+    pts.push(m);
+  }
+  const lg=new THREE.BufferGeometry().setFromPoints(pts);
+  const lm=new THREE.LineBasicMaterial({color:0x30EA03,transparent:true,opacity:.15});
+  nodeGroup.add(new THREE.Line(lg,lm));
+});
+
+bScene.add(nodeGroup);
+
+// Ambient particles inside brain
+const bpPos2=new Float32Array(400*3);
+for(let i=0;i<400;i++){bpPos2[i*3]=(Math.random()-.5)*14;bpPos2[i*3+1]=(Math.random()-.5)*10;bpPos2[i*3+2]=(Math.random()-.5)*10;}
+const bpG=new THREE.BufferGeometry(); bpG.setAttribute('position',new THREE.BufferAttribute(bpPos2,3));
+bScene.add(new THREE.Points(bpG,new THREE.PointsMaterial({color:0x1C2226,size:.035,transparent:true,opacity:.65})));
+
+// Interaction state
+const bRay=new THREE.Raycaster();
+const bMouse=new THREE.Vector2(-9,-9);
+const tooltip=document.getElementById('node-tooltip');
+let hovNode=null,isDrag=false,dragSt={x:0,y:0};
+let rotY=0,rotX=0,tRotY=0,tRotX=0,zoom=10,tZoom=10;
+const bWrap=document.getElementById('brainWrap');
+
+bWrap.addEventListener('mousemove',e=>{
+  const r=bCanvas.getBoundingClientRect();
+  const x=e.clientX-r.left, y=e.clientY-r.top;
+  bMouse.x=(x/r.width)*2-1;
+  bMouse.y=-(y/r.height)*2+1;
+  if(isDrag){tRotY+=(e.clientX-dragSt.x)*.008;tRotX+=(e.clientY-dragSt.y)*.004;dragSt={x:e.clientX,y:e.clientY};}
+  tooltip.style.left=(x+18)+'px'; tooltip.style.top=Math.max(10,y-30)+'px';
+});
+bWrap.addEventListener('mousedown',e=>{isDrag=true;dragSt={x:e.clientX,y:e.clientY};bWrap.style.cursor='grabbing';});
+window.addEventListener('mouseup',()=>{isDrag=false;bWrap.style.cursor='crosshair';});
+bWrap.addEventListener('wheel',e=>{tZoom=Math.max(5,Math.min(16,tZoom+e.deltaY*.012));e.preventDefault();},{passive:false});
+
+function resizeBrain(){
+  const w=bWrap.clientWidth, h=bWrap.clientHeight;
+  bRenderer.setSize(w,h);
+  bCam.aspect=w/h;
+  bCam.updateProjectionMatrix();
+}
+resizeBrain();
+window.addEventListener('resize',resizeBrain);
+
+const bClk=new THREE.Clock();
+(function bLoop(){
+  requestAnimationFrame(bLoop);
+  const t=bClk.getElapsedTime();
+  if(!isDrag) tRotY+=.0035;
+  rotY+=(tRotY-rotY)*.08; rotX+=(tRotX-rotX)*.08;
+  rotX=Math.max(-.7,Math.min(.7,rotX));
+  nodeGroup.rotation.y=rotY; nodeGroup.rotation.x=rotX;
+  zoom+=(tZoom-zoom)*.08; bCam.position.z=zoom;
+
+  nodeGroup.children.forEach(c=>{
+    if(c.userData.pulseRing){
+      const s=1+.45*Math.sin(t*1.9+c.userData.phase);
+      c.scale.setScalar(s);
+      c.material.opacity=.3*(1-(s-1)/.45);
+    }
+  });
+
+  bRay.setFromCamera(bMouse,bCam);
+  const hits=bRay.intersectObjects(nodeMeshes);
+  if(hits.length>0){
+    const hit=hits[0].object;
+    if(hovNode!==hit){
+      hovNode=hit;
+      const d=hit.userData;
+      tooltip.innerHTML=`<strong>${d.l}</strong><span class="ltag">${d.ly} Layer</span>${d.d}`;
+      tooltip.classList.add('visible');
+    }
+    hit.scale.lerp(new THREE.Vector3(1.4,1.4,1.4),.14);
+  } else {
+    if(hovNode){hovNode.scale.lerp(new THREE.Vector3(1,1,1),.12);hovNode=null;}
+    tooltip.classList.remove('visible');
+  }
+  nodeMeshes.forEach(m=>{if(m!==hovNode)m.scale.lerp(new THREE.Vector3(1,1,1),.1);});
+  try{bRenderer.render(bScene,bCam);}catch(e){}
+})();
+
+// ═══════════════════════════════════════════════════════════
+// VIDEO LOADING
+// ═══════════════════════════════════════════════════════════
+function getEmbed(url){
+  if(!url)return null;
+  const yt=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\s]+)/);
+  if(yt)return`https://www.youtube.com/embed/${yt[1]}?autoplay=1`;
+  if(url.includes('youtube.com/embed/'))return url+(url.includes('?')?'&autoplay=1':'?autoplay=1');
+  const v=url.match(/vimeo\.com\/(\d+)/);
+  if(v)return`https://player.vimeo.com/video/${v[1]}?autoplay=1`;
+  return url;
+}
+function loadVid(n){
+  const url=document.getElementById(`vurl${n}`).value.trim();
+  const em=getEmbed(url); if(!em)return;
+  document.getElementById(`vi${n}`).src=em;
+  document.getElementById(`vi${n}`).style.display='block';
+  document.getElementById(`vph${n}`).style.display='none';
+}
+document.getElementById('vph1').addEventListener('click',()=>{
+  const u=document.getElementById('vurl1').value.trim();
+  if(u)loadVid(1);
+});
+document.getElementById('vph2').addEventListener('click',()=>{
+  const u=document.getElementById('vurl2').value.trim();
+  if(u)loadVid(2);
+});
+document.getElementById('vurl1').addEventListener('keydown',e=>{if(e.key==='Enter')loadVid(1);});
+document.getElementById('vurl2').addEventListener('keydown',e=>{if(e.key==='Enter')loadVid(2);});
+
+// ═══════════════════════════════════════════════════════════
+// LIVE SUBTITLE CYCLING
+// ═══════════════════════════════════════════════════════════
+const subLines=[
+  {r:'user',t:'I have a bad headache...'},
+  {r:'av',t:"I'm sorry to hear that."},
+  {r:'av',t:'Is the pain throbbing or pulsing?'},
+  {r:'user',t:'Yes, it started this morning.'},
+  {r:'av',t:'Are you also feeling nauseous?'},
+  {r:'user',t:'A little bit, yes.'},
+  {r:'av',t:'Based on your symptoms, I recommend Panadol Extra.'},
+  {r:'user',t:'I have a toothache.'},
+  {r:'av',t:'Let me help you with that.'},
+  {r:'av',t:'Do you experience sensitivity to cold drinks?'},
+  {r:'user',t:'Yes, especially cold water.'},
+  {r:'av',t:'Sensodyne Rapid Relief would be ideal for you.'},
+  {r:'user',t:'I have a blocked nose and fever.'},
+  {r:'av',t:'That sounds like a cold or flu.'},
+  {r:'av',t:'Have you had these symptoms for more than 2 days?'},
+];
+let subIdx=0;
+const subCon=document.getElementById('sub-container');
+function addSubLine(){
+  const s=subLines[subIdx%subLines.length];
+  while(subCon && subCon.children.length>4)subCon.removeChild(subCon.firstChild);
+  const d=document.createElement('div');
+  d.className=`sub-line ${s.r}`;
+  d.innerHTML=`<div class="spk">${s.r==='user'?'User:':'Josephine:'}</div>${s.t}${s.r==='av'?'<span class="tcursor"></span>':''}`;
+  if(subCon) subCon.appendChild(d);
+  subCon.querySelectorAll('.tcursor').forEach((c,i,a)=>{if(i<a.length-1)c.remove();});
+  subIdx++;
+}
+setInterval(addSubLine,2700);
+
+// ═══════════════════════════════════════════════════════════
+// SCROLL REVEAL
+// ═══════════════════════════════════════════════════════════
+const revObs=new IntersectionObserver((entries)=>{
+  entries.forEach((entry,i)=>{
+    if(entry.isIntersecting){
+      setTimeout(()=>entry.target.classList.add('visible'),i*50);
+      revObs.unobserve(entry.target);
+    }
+  });
+},{threshold:.08,rootMargin:'0px 0px -36px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>revObs.observe(el));
+</script>
+</body>
+</html>
