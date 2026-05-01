@@ -87,3 +87,87 @@ Instead of clicking buttons, users can **speak naturally**, and the avatar respo
 ---
 
 ## 🏗️ System Architecture
+
+User Voice
+↓
+Speech Recognition
+↓
+Intent Detection
+↓
+Conversation Flow Engine
+↓
+Response Generation
+↓
+Avatar + Audio + Subtitles
+
+---
+
+## 🧩 Core Scripts
+
+| Script | Responsibility |
+|------|---------------|
+| `WindowsSpeechToText` | Handles mic input & speech recognition |
+| `SpeechInputManager` | Controls mic modes & voice activation |
+| `IntentMatcher` | Detects user intent |
+| `NPCResponseController` | Manages conversation flow |
+| `SubtitleUI` | Displays animated subtitles |
+| `ManualDemoController` | Handles presentation/demo flow |
+| `CinemachineCameraSwitcher` | Controls camera transitions |
+| `MicDeviceManager` | Handles microphone switching |
+
+---
+
+## 🚧 Challenges & Solutions
+
+### Challenges
+- Speech detection delays
+- Noise interference
+- Duplicate input triggers
+- Sync between audio & animation
+
+### Solutions
+- Adaptive voice threshold
+- Processing lock system
+- State-based flow control
+- Auto-recovery for speech engine
+
+---
+
+## 🚀 Future Scope
+
+- Emotion-aware AI responses  
+- Multilingual support  
+- GPT-based conversational intelligence  
+- VR integration (Unity XR)  
+- Personalized user experiences  
+
+---
+
+## 🧠 Key Learning
+
+This project demonstrates:
+- Real-time system design  
+- State management in interactive systems  
+- Voice-based UX design  
+- Modular architecture in Unity  
+
+---
+
+## 🎬 Demo
+
+> Live demo available during presentation  
+> (Unity WebGL build can be embedded here)
+
+---
+
+## 👨‍💻 Author
+
+**Sai Deepak**  
+Senior Designer & Developer (XR / VR)  
+
+---
+
+## 📌 Note
+
+This is not a basic chatbot —  
+it is a **real-time conversational system designed for immersive user interaction**.
