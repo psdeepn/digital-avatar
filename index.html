@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SD — Haleon Digital Avatar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --g:#30EA03;--gd:rgba(48,234,3,0.13);--gg:rgba(48,234,3,0.28);
+  --dark:#07090A;--darker:#040506;--card:#0E1210;--card2:#131A15;
+  --steel:#333F48;--slate:#8D979D;--silver:#D0D3D4;--W:#FFFFFF;
+  --bdr:rgba(48,234,3,0.16);--bdr2:rgba(208,211,212,0.1);
+  --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--darker);color:var(--W);font-family:var(--sans);overflow-x:hidden;cursor:none;}
+
+/* LOADER */
+#ldr{position:fixed;inset:0;z-index:99999;background:var(--darker);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;transition:opacity .9s,visibility .9s;}
+#ldr.gone{opacity:0;visibility:hidden;pointer-events:none;}
+.lring{width:80px;height:80px;border-radius:50%;border:2px solid rgba(48,234,3,.12);border-top-color:var(--g);animation:lspin 1s linear infinite;display:flex;align-items:center;justify-content:center;}
+.linner{width:52px;height:52px;border-radius:50%;border:1px solid rgba(48,234,3,.08);border-bottom-color:var(--g);animation:lspin 1.6s linear infinite reverse;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:17px;font-weight:700;color:var(--g);}
+@keyframes lspin{to{transform:rotate(360deg)}}
+.lbar-bg{width:220px;height:1px;background:rgba(208,211,212,.08);}
+.lbar{height:100%;background:linear-gradient(90deg,var(--g),rgba(48,234,3,.35));animation:lfill 2.1s cubic-bezier(.4,0,.2,1) forwards;}
+@keyframes lfill{from{width:0}to{width:100%}}
+.ltxt{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--slate);}
+
+/* CURSOR */
+#cur{position:fixed;width:9px;height:9px;background:var(--g);border-radius:50%;pointer-events:none;z-index:99998;transform:translate(-50%,-50%);transition:width .25s,height .25s;}
+#curR{position:fixed;width:34px;height:34px;border:1px solid rgba(48,234,3,.38);border-radius:50%;pointer-events:none;z-index:99997;transform:translate(-50%,-50%);transition:width .3s,height .3s,border-color .3s;}
+body:has(a:hover) #cur,body:has(button:hover) #cur{width:18px;height:18px;background:#fff;}
+body:has(a:hover) #curR,body:has(button:hover) #curR{width:54px;height:54px;border-color:var(--g);}
+
+/* BG CANVAS */
+#bgc{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;}
+
+/* SCANLINES + NOISE */
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.022) 3px,rgba(0,0,0,.022) 4px);pointer-events:none;z-index:9998;}
+body::after{content:'';position:fixed;inset:0;opacity:.35;background:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)' opacity='.032'/%3E%3C/svg%3E");pointer-events:none;z-index:9997;}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;padding:0 48px;height:62px;background:rgba(4,5,6,.88);backdrop-filter:blur(28px);border-bottom:1px solid var(--bdr);}
+.nbrand{display:flex;align-items:center;gap:10px;}
+.nmark{font-size:24px;font-weight:800;color:var(--g);letter-spacing:-2px;line-height:1;}
+.nsep{width:1px;height:18px;background:var(--bdr2);}
+.nsub{font-family:var(--mono);font-size:9px;color:var(--slate);letter-spacing:.2em;text-transform:uppercase;}
+.nlinks{display:flex;gap:26px;list-style:none;}
+.nlinks a{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);text-decoration:none;transition:color .2s;position:relative;}
+.nlinks a::after{content:'';position:absolute;bottom:-3px;left:0;width:0;height:1px;background:var(--g);transition:width .22s;}
+.nlinks a:hover{color:var(--W);}
+.nlinks a:hover::after{width:100%;}
+.ncta{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dark);background:var(--g);padding:8px 20px;border-radius:3px;text-decoration:none;transition:all .2s;cursor:pointer;border:none;}
+.ncta:hover{background:#fff;}
+.nstatus{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:.1em;}
+.ndot{width:6px;height:6px;background:var(--g);border-radius:50%;animation:blink 1.6s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.65)}}
+.nright{display:flex;align-items:center;gap:18px;}
+
+/* PROGRESS BAR */
+#progress-bar{position:fixed;top:62px;left:0;height:2px;background:var(--g);z-index:999;transition:width .1s;}
+
+/* HERO */
+#hero{min-height:100vh;display:flex;align-items:center;position:relative;z-index:2;padding:80px 48px 60px;}
+.hero-inner{display:grid;grid-template-columns:1fr 400px;gap:56px;align-items:center;width:100%;max-width:1400px;margin:0 auto;}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--g);margin-bottom:18px;display:flex;align-items:center;gap:10px;}
+.eyebrow::before{content:'';width:22px;height:1px;background:var(--g);}
+.htitle{font-size:clamp(50px,7vw,96px);font-weight:800;line-height:.9;letter-spacing:-.04em;margin-bottom:22px;}
+.htitle .name{display:block;color:var(--W);}
+.htitle .nacc{color:var(--g);}
+.htitle .sub{display:block;color:var(--slate);font-size:.31em;font-weight:500;letter-spacing:.04em;margin-top:16px;line-height:1.5;text-transform:uppercase;font-family:var(--mono);}
+.hdesc{font-size:17px;line-height:1.82;color:var(--silver);max-width:520px;margin-bottom:38px;}
+.hdesc strong{color:var(--W);font-weight:700;}
+.hstats{display:flex;gap:38px;margin-bottom:34px;padding:26px 0;border-top:1px solid var(--bdr2);border-bottom:1px solid var(--bdr2);}
+.hstat .num{font-size:40px;font-weight:800;letter-spacing:-.04em;color:var(--g);line-height:1;}
+.hstat .lbl{font-family:var(--mono);font-size:10px;color:var(--slate);letter-spacing:.08em;text-transform:uppercase;margin-top:4px;}
+.pills{display:flex;flex-wrap:wrap;gap:8px;}
+.pill{font-family:var(--mono);font-size:10px;background:rgba(51,63,72,.35);border:1px solid rgba(141,151,157,.18);color:var(--slate);padding:5px 12px;border-radius:3px;transition:all .2s;cursor:default;}
+.pill:hover{border-color:var(--g);color:var(--W);}
+.shint{margin-top:44px;display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:10px;color:var(--slate);letter-spacing:.12em;}
+.sarr{width:22px;height:22px;border:1px solid rgba(141,151,157,.28);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;animation:abounce 1.4s ease-in-out infinite alternate;}
+@keyframes abounce{from{transform:translateY(0)}to{transform:translateY(4px)}}
+
+/* HERO AVATAR */
+.hero-visual{position:relative;display:flex;align-items:center;justify-content:center;}
+.av-wrap{width:380px;height:380px;position:relative;}
+#avc{width:100%;height:100%;display:block;}
+.av-hud{position:absolute;inset:0;pointer-events:none;}
+.hl{position:absolute;background:rgba(48,234,3,.2);}
+.hl.tl{top:36px;left:0;width:50px;height:1px;} .hl.tl2{top:0;left:36px;width:1px;height:50px;}
+.hl.tr{top:36px;right:0;width:50px;height:1px;} .hl.tr2{top:0;right:36px;width:1px;height:50px;}
+.hl.bl{bottom:36px;left:0;width:50px;height:1px;} .hl.bl2{bottom:0;left:36px;width:1px;height:50px;}
+.hl.br{bottom:36px;right:0;width:50px;height:1px;} .hl.br2{bottom:0;right:36px;width:1px;height:50px;}
+.hbadge{position:absolute;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--g);background:rgba(4,5,6,.92);border:1px solid var(--bdr);padding:4px 10px;border-radius:3px;white-space:nowrap;}
+.hbadge.tl{top:14px;left:14px;} .hbadge.tr{top:14px;right:14px;}
+.hbadge.bl{bottom:14px;left:14px;} .hbadge.br{bottom:14px;right:14px;}
+
+/* SECTIONS */
+section{padding:96px 48px;position:relative;z-index:2;}
+.si{max-width:1400px;margin:0 auto;}
+.slabel{font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--g);margin-bottom:14px;display:flex;align-items:center;gap:10px;}
+.slabel::before{content:'';width:20px;height:1px;background:var(--g);}
+.stitle{font-size:clamp(28px,4vw,50px);font-weight:800;letter-spacing:-.03em;line-height:1.04;margin-bottom:13px;color:var(--W);}
+.stitle span{color:var(--g);}
+.ssub{font-size:16px;color:var(--silver);max-width:500px;line-height:1.78;margin-bottom:48px;}
+
+/* CHALLENGE */
+#challenge{background:rgba(8,10,9,.97);border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);}
+.cgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr2);border:1px solid var(--bdr2);border-radius:16px;overflow:hidden;margin-bottom:26px;}
+.ccard{background:var(--card);padding:36px 28px;transition:background .3s;position:relative;overflow:hidden;}
+.ccard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--g),transparent);transform:scaleX(0);transform-origin:left;transition:transform .5s;}
+.ccard:hover::after{transform:scaleX(1);}
+.ccard:hover{background:var(--card2);}
+.ccard .ci{font-size:30px;margin-bottom:16px;display:block;}
+.ccard h3{font-size:17px;font-weight:700;margin-bottom:10px;color:var(--W);}
+.ccard p{font-size:14px;line-height:1.78;color:var(--silver);}
+.csolve{padding:26px 34px;background:linear-gradient(135deg,rgba(48,234,3,.055),rgba(51,63,72,.08));border:1px solid var(--bdr);border-radius:13px;font-size:16px;line-height:1.72;text-align:center;color:var(--silver);}
+.csolve strong{color:var(--g);}
+
+/* SOLUTION */
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+.fcard{background:var(--card);border:1px solid var(--bdr2);border-radius:13px;padding:28px 22px;transition:transform .3s,border-color .3s,background .3s;position:relative;overflow:hidden;}
+.fcard::before{content:'';position:absolute;top:0;left:0;width:3px;height:0;background:var(--g);transition:height .4s;}
+.fcard:hover::before{height:100%;}
+.fcard:hover{transform:translateY(-5px);border-color:var(--bdr);background:var(--card2);}
+.fn{font-family:var(--mono);font-size:10px;color:var(--g);letter-spacing:.1em;margin-bottom:12px;}
+.fcard h3{font-size:16px;font-weight:700;margin-bottom:8px;color:var(--W);}
+.fcard p{font-size:14px;color:var(--silver);line-height:1.72;}
+.ftag{display:inline-block;margin-top:12px;font-family:var(--mono);font-size:9px;background:rgba(48,234,3,.055);border:1px solid rgba(48,234,3,.2);color:var(--g);padding:3px 8px;border-radius:3px;letter-spacing:.05em;}
+.jocard{grid-column:span 3;background:linear-gradient(135deg,var(--card),rgba(48,234,3,.04));border:1px solid var(--bdr);border-radius:13px;padding:32px;display:flex;align-items:center;gap:30px;}
+.joav{width:68px;height:68px;background:radial-gradient(circle at 40% 35%,rgba(48,234,3,.18),rgba(4,5,6,.98));border:1px solid var(--bdr);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:27px;flex-shrink:0;}
+.joinfo h3{font-size:18px;font-weight:700;margin-bottom:5px;color:var(--W);}
+.joinfo p{font-size:14px;color:var(--silver);line-height:1.68;}
+.jobadge{margin-left:auto;display:flex;align-items:center;gap:7px;background:rgba(48,234,3,.06);border:1px solid var(--bdr);border-radius:100px;padding:7px 17px;font-family:var(--mono);font-size:10px;color:var(--g);flex-shrink:0;}
+
+/* ARCHITECTURE */
+#arch{background:rgba(6,8,7,.98);border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);}
+.alayers{display:flex;flex-direction:column;gap:12px;}
+.arow{display:flex;align-items:stretch;gap:12px;}
+.albl{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--g);min-width:34px;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--bdr);}
+.achips{display:flex;gap:8px;flex:1;flex-wrap:wrap;align-items:center;padding:8px 0;}
+.chip{background:var(--card);border:1px solid var(--bdr2);border-radius:6px;padding:10px 15px;font-family:var(--mono);font-size:11px;color:var(--slate);transition:all .2s;cursor:default;}
+.chip:hover{color:var(--W);border-color:var(--bdr);background:var(--card2);}
+.aarrow{text-align:center;font-family:var(--mono);font-size:10px;color:rgba(141,151,157,.38);padding:3px;letter-spacing:.05em;}
+
+/* WAVEFORM */
+#wfsec{background:rgba(6,8,7,.99);border-top:1px solid var(--bdr);padding:0;}
+.wfinner{max-width:1400px;margin:0 auto;padding:88px 48px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;}
+.wfc{background:var(--card);border:1px solid var(--bdr);border-radius:16px;padding:30px;overflow:hidden;}
+.wfhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.wflbl{font-family:var(--mono);font-size:10px;color:var(--g);letter-spacing:.15em;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+.wfstat{font-family:var(--mono);font-size:10px;color:var(--slate);}
+#wfcv{display:block;width:100%;height:72px;}
+.wfbtns{display:flex;gap:8px;margin-top:14px;}
+.wfbtn{flex:1;padding:9px 6px;background:rgba(48,234,3,.06);border:1px solid var(--bdr);border-radius:5px;font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:.09em;text-transform:uppercase;cursor:pointer;transition:all .2s;}
+.wfbtn:hover{background:rgba(48,234,3,.12);}
+.wfbtn.on{background:var(--g);color:var(--dark);border-color:var(--g);}
+.wftrs{margin-top:18px;display:flex;flex-direction:column;gap:7px;min-height:96px;}
+.wftr{padding:7px 11px;background:rgba(48,234,3,.04);border-left:2px solid var(--g);border-radius:0 6px 6px 0;font-family:var(--mono);font-size:11px;color:var(--silver);animation:wfin .4s ease-out;}
+@keyframes wfin{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+.wftr .wfs{font-size:9px;color:var(--g);margin-bottom:2px;letter-spacing:.1em;text-transform:uppercase;}
+
+/* VOICE SECTION */
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.vc{background:var(--card);border:1px solid var(--bdr2);border-radius:15px;padding:28px;}
+.vc h3{font-size:16px;font-weight:700;margin-bottom:20px;color:var(--W);}
+.mm{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid rgba(208,211,212,.05);}
+.mm:last-of-type{border-bottom:none;}
+.mmi{width:32px;height:32px;background:rgba(48,234,3,.07);border:1px solid rgba(48,234,3,.18);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.mmn{font-size:13px;font-weight:700;margin-bottom:2px;color:var(--W);}
+.mmd{font-size:12px;color:var(--silver);line-height:1.55;}
+.vcdiv{height:1px;background:rgba(208,211,212,.05);margin:16px 0;}
+.vcd{font-family:var(--mono);font-size:11px;color:var(--g);line-height:2.2;}
+.irow{display:flex;align-items:center;gap:11px;padding:11px;background:rgba(51,63,72,.14);border-radius:7px;border:1px solid rgba(208,211,212,.055);margin-bottom:6px;}
+.iico{width:34px;height:34px;background:rgba(48,234,3,.07);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
+.it strong{font-size:13px;color:var(--W);}
+.it span{font-size:11px;color:var(--slate);display:block;margin-top:1px;}
+.iarr{text-align:center;font-size:16px;color:var(--g);margin:2px 0;}
+.idgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px;}
+.idom{background:rgba(51,63,72,.14);border:1px solid var(--bdr2);border-radius:8px;padding:11px;text-align:center;transition:all .2s;cursor:default;}
+.idom:hover{border-color:var(--bdr);background:rgba(48,234,3,.055);}
+.idom .ie{font-size:21px;display:block;margin-bottom:5px;}
+.idom .in{font-size:10px;font-weight:700;color:var(--W);}
+.idom .ik{font-size:9px;color:var(--slate);margin-top:2px;font-family:var(--mono);}
+
+/* SUBTITLE DEMO */
+.subdemo{background:var(--card);border:1px solid var(--bdr2);border-radius:15px;padding:26px;font-family:var(--mono);margin-top:28px;}
+.subhdr{font-size:10px;color:var(--slate);letter-spacing:.14em;text-transform:uppercase;margin-bottom:15px;padding-bottom:13px;border-bottom:1px solid rgba(208,211,212,.05);}
+.subline{margin-bottom:9px;animation:slin .45s ease-out both;}
+@keyframes slin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.subline.user{color:var(--g);font-size:13px;}
+.subline.av{color:var(--W);font-size:13px;}
+.subline .spk{color:var(--slate);font-size:9px;margin-bottom:2px;letter-spacing:.1em;}
+.tcur{display:inline-block;width:2px;height:13px;background:var(--g);animation:cblink 1s ease-in-out infinite;vertical-align:middle;margin-left:2px;}
+@keyframes cblink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* 3D BRAIN */
+#brain{background:rgba(3,4,4,.99);border-top:1px solid var(--bdr);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;padding:88px 48px;}
+.bwrap{width:min(980px,100%);height:570px;position:relative;border:1px solid var(--bdr);border-radius:20px;overflow:hidden;background:rgba(3,5,4,.96);cursor:crosshair;box-shadow:0 0 120px rgba(48,234,3,.04),inset 0 0 80px rgba(0,0,0,.55);}
+#bcanv{width:100%;height:100%;display:block;}
+.ntip{position:absolute;background:rgba(3,5,4,.98);border:1px solid var(--bdr);border-radius:9px;padding:13px 16px;font-family:var(--mono);font-size:11px;color:var(--silver);pointer-events:none;opacity:0;transition:opacity .18s;max-width:230px;z-index:10;line-height:1.68;backdrop-filter:blur(20px);}
+.ntip.show{opacity:1;}
+.ntip strong{color:var(--g);display:block;margin-bottom:4px;font-size:12px;}
+.ntip .ltag{display:inline-block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--slate);background:rgba(51,63,72,.28);border:1px solid rgba(141,151,157,.13);border-radius:3px;padding:2px 7px;margin-bottom:7px;}
+.bhint{font-family:var(--mono);font-size:10px;color:var(--slate);text-align:center;margin-top:16px;letter-spacing:.09em;}
+.bleg{display:flex;gap:22px;margin-top:13px;flex-wrap:wrap;justify-content:center;}
+.bli{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--slate);letter-spacing:.05em;}
+.bld{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* PRODUCTS */
+#products{background:rgba(8,10,9,.97);border-top:1px solid var(--bdr);}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.pcard{background:var(--card);border:1px solid var(--bdr2);border-radius:15px;overflow:hidden;cursor:pointer;transition:transform .3s,border-color .3s;position:relative;}
+.pcard:hover{transform:translateY(-8px);border-color:var(--bdr);}
+.pctop{padding:38px 26px 26px;position:relative;}
+.pglow{position:absolute;top:-40px;right:-40px;width:150px;height:150px;border-radius:50%;filter:blur(48px);opacity:.14;transition:opacity .4s;}
+.pcard:hover .pglow{opacity:.28;}
+.pemi{font-size:50px;display:block;margin-bottom:14px;}
+.pname{font-size:19px;font-weight:800;color:var(--W);margin-bottom:5px;}
+.pcat{font-family:var(--mono);font-size:10px;color:var(--g);letter-spacing:.12em;text-transform:uppercase;margin-bottom:13px;}
+.pdesc{font-size:14px;color:var(--silver);line-height:1.72;}
+.pcbot{padding:17px 26px;background:rgba(0,0,0,.22);border-top:1px solid var(--bdr2);display:flex;align-items:center;justify-content:space-between;}
+.ptrig{font-family:var(--mono);font-size:10px;color:var(--slate);}
+.ptrig strong{color:var(--g);}
+.parr{width:27px;height:27px;border:1px solid var(--bdr);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--g);transition:all .2s;}
+.pcard:hover .parr{background:var(--g);color:var(--dark);border-color:var(--g);}
+
+/* FLOWS */
+.flgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+.flcard{background:var(--card);border:1px solid var(--bdr2);border-radius:15px;padding:30px 26px;transition:border-color .3s,transform .3s,background .3s;position:relative;overflow:hidden;}
+.flcard::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(48,234,3,.038),transparent);opacity:0;transition:opacity .3s;}
+.flcard:hover::before{opacity:1;}
+.flcard:hover{border-color:var(--bdr);transform:translateY(-4px);}
+.flcard .fli{font-size:38px;display:block;margin-bottom:16px;}
+.flcard h3{font-size:18px;font-weight:800;margin-bottom:5px;color:var(--W);}
+.flsteps{font-family:var(--mono);font-size:10px;color:var(--g);margin-bottom:13px;letter-spacing:.07em;}
+.fleg{font-size:13px;color:var(--silver);line-height:1.68;margin-bottom:14px;padding:10px 13px;background:rgba(51,63,72,.18);border-radius:6px;border-left:2px solid var(--bdr);}
+.ftree{display:flex;flex-direction:column;gap:6px;}
+.ft{display:flex;align-items:center;gap:7px;font-size:12px;padding:6px 9px;background:rgba(0,0,0,.18);border-radius:6px;border:1px solid rgba(208,211,212,.045);color:var(--silver);}
+.ft .fd{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.fdy{background:var(--g);} .fdn{background:#FF4444;}
+
+/* DEMO */
+#demo{background:rgba(4,5,5,.99);border-top:1px solid var(--bdr);}
+.dlayout{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start;}
+.vwrap{background:var(--card);border:1px solid var(--bdr2);border-radius:15px;overflow:hidden;}
+.vph{aspect-ratio:16/9;background:linear-gradient(135deg,#08100A,#111A12);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;cursor:pointer;position:relative;overflow:hidden;transition:background .3s;}
+.vph::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at center,rgba(48,234,3,.055),transparent 68%);}
+.vph:hover{background:linear-gradient(135deg,#0d160f,#161e17);}
+.vpbtn{width:66px;height:66px;background:var(--g);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:21px;transition:transform .2s,box-shadow .2s;position:relative;z-index:1;color:var(--dark);}
+.vph:hover .vpbtn{transform:scale(1.1);box-shadow:0 0 50px rgba(48,234,3,.38);}
+.vplbl{font-family:var(--mono);font-size:10px;color:var(--slate);letter-spacing:.08em;z-index:1;}
+.virow{display:flex;gap:8px;padding:12px;background:rgba(0,0,0,.38);border-top:1px solid var(--bdr2);}
+.vinp{flex:1;background:rgba(51,63,72,.18);border:1px solid var(--bdr2);border-radius:6px;padding:8px 11px;color:var(--W);font-family:var(--mono);font-size:11px;outline:none;transition:border-color .2s;}
+.vinp:focus{border-color:var(--g);}
+.vinp::placeholder{color:var(--slate);}
+.vbtn{background:var(--g);color:var(--dark);border:none;border-radius:6px;padding:8px 16px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;cursor:pointer;transition:opacity .2s;white-space:nowrap;font-weight:700;}
+.vbtn:hover{opacity:.84;}
+.viframe{display:none;width:100%;aspect-ratio:16/9;border:none;}
+.vseclbl{font-family:var(--mono);font-size:10px;color:var(--slate);letter-spacing:.1em;text-transform:uppercase;margin:14px 0 8px;}
+.dsteps{}
+.ds{display:flex;gap:15px;padding:17px 0;border-bottom:1px solid rgba(208,211,212,.045);}
+.ds:last-child{border-bottom:none;}
+.dsn{font-family:var(--mono);font-size:10px;color:var(--g);background:rgba(48,234,3,.07);border:1px solid rgba(48,234,3,.18);border-radius:4px;padding:3px 8px;flex-shrink:0;height:fit-content;}
+.ds h4{font-size:14px;font-weight:700;margin-bottom:4px;color:var(--W);}
+.ds p{font-size:13px;color:var(--silver);line-height:1.68;}
+
+/* COMMANDS */
+#commands{background:rgba(6,8,7,.98);border-top:1px solid var(--bdr);border-bottom:1px solid var(--bdr);}
+.cmdg{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.cmdtbl{background:var(--card);border:1px solid var(--bdr2);border-radius:12px;overflow:hidden;}
+.cmdth{background:rgba(48,234,3,.05);border-bottom:1px solid var(--bdr2);padding:13px 20px;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--g);}
+.cmdrow{display:flex;justify-content:space-between;align-items:center;padding:11px 20px;border-bottom:1px solid rgba(208,211,212,.035);transition:background .2s;}
+.cmdrow:last-child{border-bottom:none;}
+.cmdrow:hover{background:rgba(51,63,72,.13);}
+.cmdkey{font-family:var(--mono);font-size:10px;background:rgba(51,63,72,.28);border:1px solid rgba(141,151,157,.13);border-radius:3px;padding:3px 8px;color:var(--slate);}
+.cmdact{font-size:13px;color:var(--silver);}
+.vtlbl{font-family:var(--mono);font-size:10px;color:var(--slate);letter-spacing:.12em;text-transform:uppercase;margin-bottom:11px;}
+.vtgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;}
+.vt{display:flex;justify-content:space-between;align-items:center;padding:10px 13px;background:rgba(51,63,72,.11);border:1px solid rgba(208,211,212,.055);border-radius:7px;transition:all .2s;}
+.vt:hover{border-color:var(--bdr);background:rgba(48,234,3,.04);}
+.vtph{font-family:var(--mono);font-size:10px;color:var(--silver);}
+.vtfl{font-size:10px;color:var(--g);font-family:var(--mono);}
+.scg{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:40px;}
+.scp{background:var(--card);border:1px solid var(--bdr2);border-radius:6px;padding:8px 11px;font-family:var(--mono);font-size:9px;color:var(--slate);transition:all .2s;cursor:default;line-height:1.4;}
+.scp:hover{color:var(--g);border-color:var(--bdr);background:var(--card2);}
+
+/* ACTIVITY */
+#activity{background:rgba(8,10,9,.97);border-top:1px solid var(--bdr);}
+.agrid{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start;}
+.qastack{display:flex;flex-direction:column;gap:10px;}
+.qaitem{background:var(--card);border:1px solid var(--bdr2);border-radius:11px;overflow:hidden;cursor:pointer;transition:border-color .2s;}
+.qaitem.open{border-color:var(--bdr);}
+.qaq{display:flex;justify-content:space-between;align-items:center;padding:15px 18px;gap:12px;}
+.qatext{font-size:14px;font-weight:600;color:var(--W);line-height:1.5;}
+.qaico{width:24px;height:24px;border:1px solid var(--bdr2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--g);flex-shrink:0;transition:transform .3s,background .2s,border-color .2s;}
+.qaitem.open .qaico{transform:rotate(45deg);background:var(--g);color:var(--dark);border-color:var(--g);}
+.qaa{max-height:0;overflow:hidden;transition:max-height .42s ease;}
+.qaitem.open .qaa{max-height:220px;}
+.qaai{padding:0 18px 16px;font-size:13px;color:var(--silver);line-height:1.78;border-top:1px solid rgba(208,211,212,.055);padding-top:13px;}
+/* QUIZ */
+.qzcard{background:var(--card);border:1px solid var(--bdr);border-radius:15px;padding:30px;}
+.qzcard h3{font-size:18px;font-weight:700;color:var(--W);margin-bottom:6px;}
+.qzsub{font-family:var(--mono);font-size:11px;color:var(--slate);margin-bottom:20px;}
+.qzprog{display:flex;gap:5px;margin-bottom:18px;}
+.qzdot{width:8px;height:8px;border-radius:50%;background:var(--bdr2);transition:background .3s;}
+.qzdot.done{background:var(--g);}
+.qzq{font-size:15px;color:var(--W);line-height:1.62;margin-bottom:18px;padding:15px;background:rgba(48,234,3,.04);border:1px solid var(--bdr);border-radius:8px;}
+.qzopts{display:flex;flex-direction:column;gap:7px;}
+.qzopt{padding:11px 15px;background:rgba(51,63,72,.14);border:1px solid var(--bdr2);border-radius:7px;font-size:13px;color:var(--silver);cursor:pointer;transition:all .2s;text-align:left;font-family:var(--sans);}
+.qzopt:hover{border-color:var(--bdr);color:var(--W);background:rgba(48,234,3,.04);}
+.qzopt.correct{border-color:var(--g);background:rgba(48,234,3,.09);color:var(--g);}
+.qzopt.wrong{border-color:#FF4444;background:rgba(255,68,68,.07);color:#FF6666;}
+.qzfb{margin-top:14px;padding:11px 15px;border-radius:7px;font-size:13px;display:none;line-height:1.6;}
+.qzfb.show{display:block;}
+.qzfb.good{background:rgba(48,234,3,.07);border:1px solid var(--bdr);color:var(--g);}
+.qzfb.bad{background:rgba(255,68,68,.07);border:1px solid rgba(255,68,68,.28);color:#FF6666;}
+.qznext{margin-top:12px;padding:10px 20px;background:var(--g);color:var(--dark);border:none;border-radius:6px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;display:none;font-weight:700;transition:opacity .2s;}
+.qznext:hover{opacity:.85;}
+
+/* TIMELINE (NEW) */
+#timeline{background:rgba(6,8,7,.99);border-top:1px solid var(--bdr);}
+.tline{position:relative;padding-left:32px;}
+.tline::before{content:'';position:absolute;top:0;left:8px;bottom:0;width:1px;background:linear-gradient(180deg,var(--g),rgba(48,234,3,.1));}
+.titem{position:relative;margin-bottom:32px;}
+.titem:last-child{margin-bottom:0;}
+.tdot{position:absolute;left:-28px;top:4px;width:16px;height:16px;border-radius:50%;border:2px solid var(--g);background:var(--darker);transition:background .3s;}
+.titem:hover .tdot{background:var(--g);}
+.ttag{font-family:var(--mono);font-size:9px;color:var(--g);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;}
+.th{font-size:16px;font-weight:700;color:var(--W);margin-bottom:5px;}
+.tp{font-size:14px;color:var(--silver);line-height:1.72;}
+
+/* OUTRO */
+#outro{min-height:75vh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;z-index:2;overflow:hidden;}
+.owrap{position:relative;z-index:2;}
+.otitle{font-size:clamp(46px,9vw,98px);font-weight:800;letter-spacing:-.04em;line-height:.9;margin-bottom:26px;}
+.otitle .l1{display:block;color:var(--slate);}
+.otitle .l2{display:block;color:var(--g);}
+.otitle .l3{display:block;color:var(--W);}
+.ostats{display:flex;justify-content:center;gap:50px;margin-top:50px;}
+.ost .oi{font-size:24px;display:block;margin-bottom:6px;}
+.ost .on{font-size:42px;font-weight:800;color:var(--W);letter-spacing:-.04em;line-height:1;}
+.ost .ol{font-family:var(--mono);font-size:10px;color:var(--slate);letter-spacing:.1em;text-transform:uppercase;margin-top:3px;}
+.oline{width:1px;height:42px;background:var(--bdr2);align-self:center;}
+.ocred{margin-top:60px;font-family:var(--mono);font-size:11px;color:var(--slate);letter-spacing:.08em;line-height:2.2;}
+.ocred strong{color:var(--W);}
+.ocg{color:var(--g);}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .6s ease,transform .6s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:var(--darker);}
+::-webkit-scrollbar-thumb{background:rgba(48,234,3,.28);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="ldr">
+  <div class="lring"><div class="linner">SD</div></div>
+  <div class="lbar-bg"><div class="lbar"></div></div>
+  <div class="ltxt">Initialising...</div>
+</div>
+
+<div id="cur"></div>
+<div id="curR"></div>
+<div id="progress-bar" style="width:0"></div>
+<canvas id="bgc"></canvas>
+
+<!-- NAV -->
+<nav>
+  <div class="nbrand">
+    <span class="nmark">SD</span>
+    <div class="nsep"></div>
+    <span class="nsub">Haleon · SSL</span>
+  </div>
+  <ul class="nlinks">
+    <li><a href="#challenge">Problem</a></li>
+    <li><a href="#solution">Solution</a></li>
+    <li><a href="#brain">3D Brain</a></li>
+    <li><a href="#products">Products</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#timeline">Timeline</a></li>
+    <li><a href="#activity">Q&amp;A</a></li>
+  </ul>
+  <div class="nright">
+    <div class="nstatus"><div class="ndot"></div>SYSTEM LIVE</div>
+    <a href="#demo" class="ncta">Watch Demo</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-inner">
+    <div class="hero-content">
+      <p class="eyebrow">Haleon Digital Avatar Chatbot</p>
+      <h1 class="htitle">
+        <span class="name">S<span class="nacc">D</span></span>
+        <span class="sub">Unity3D · Voice AI · Kiosk · Health Advisory</span>
+      </h1>
+      <p class="hdesc">A <strong>voice-driven, conversational AI health advisor</strong> built entirely in Unity3D. No external API at runtime. Guides every shopper to the right Haleon product 24/7, fully offline.</p>
+      <div class="hstats">
+        <div class="hstat"><div class="num">22</div><div class="lbl">C# Scripts</div></div>
+        <div class="hstat"><div class="num">3</div><div class="lbl">Health Flows</div></div>
+        <div class="hstat"><div class="num">4</div><div class="lbl">Mic Modes</div></div>
+        <div class="hstat"><div class="num">100%</div><div class="lbl">Local AI</div></div>
+      </div>
+      <div class="pills">
+        <span class="pill">Unity3D</span><span class="pill">C#</span><span class="pill">Windows Speech API</span><span class="pill">Cinemachine</span><span class="pill">TextMeshPro</span><span class="pill">Sai Deepak</span>
+      </div>
+      <div class="shint"><div class="sarr">↓</div><strong>Scroll to explore</strong></div>
+    </div>
+    <div class="hero-visual">
+      <div class="av-wrap">
+        <canvas id="avc"></canvas>
+        <div class="av-hud">
+          <div class="hl tl"></div><div class="hl tl2"></div>
+          <div class="hl tr"></div><div class="hl tr2"></div>
+          <div class="hl bl"></div><div class="hl bl2"></div>
+          <div class="hl br"></div><div class="hl br2"></div>
+          <div class="hbadge tl">VOICE ACTIVATED</div>
+          <div class="hbadge tr">HALEON AI CHATBOT</div>
+          <div class="hbadge bl">ONLINE</div>
+          <div class="hbadge br">UNITY3D</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CHALLENGE -->
+<section id="challenge">
+  <div class="si">
+    <div class="slabel reveal">01 — Problem</div>
+    <h2 class="stitle reveal">The <span>Challenge</span></h2>
+    <p class="ssub reveal">Retail health advisors can't scale. Shoppers need consistent, 24/7 guidance — static posters can't deliver it.</p>
+    <div class="cgrid reveal">
+      <div class="ccard"><span class="ci">⚠️</span><h3>No Consistent Guidance</h3><p>Shoppers asking about Sensodyne, Panadol, or Voltaren get inconsistent advice depending on who's available — or no advice at all.</p></div>
+      <div class="ccard"><span class="ci">🕐</span><h3>No 24/7 Availability</h3><p>Human pharmacists aren't always present in large retail environments. The gap is costly and the need is constant around the clock.</p></div>
+      <div class="ccard"><span class="ci">🌳</span><h3>Complex Symptom Trees</h3><p>Oral care, cold &amp; flu, and migraine each need multi-step diagnostic flows — too complex for a FAQ, too nuanced for a poster.</p></div>
+    </div>
+    <div class="csolve reveal"><strong>Digital Avatar</strong> solves all three — a fully interactive, voice-activated digital health avatar that scales infinitely, never sleeps, and guides every shopper to the right Haleon product.</div>
+  </div>
+</section>
+
+<!-- SOLUTION -->
+<section id="solution">
+  <div class="si">
+    <div class="slabel reveal">02 — Solution</div>
+    <h2 class="stitle reveal">Meet <span>Digital Avatar</span></h2>
+    <p class="ssub reveal">A real-time Unity3D avatar powered by voice and intent matching — six core systems working as one.</p>
+    <div class="fgrid reveal">
+      <div class="fcard"><div class="fn">— 01</div><h3>Voice Input</h3><p>Listens via Windows Speech API with 4 mic modes: Off, Always-On, Push-to-Talk, and Voice Activation with adaptive noise thresholds.</p><span class="ftag">WindowsSpeechToText.cs</span></div>
+      <div class="fcard"><div class="fn">— 02</div><h3>Intent Matching</h3><p>Keyword scoring detects Oral Care / Cold &amp; Flu / Migraine from natural speech with tie-breaking logic for ambiguous inputs.</p><span class="ftag">IntentMatcher.cs</span></div>
+      <div class="fcard"><div class="fn">— 03</div><h3>Guided Flows</h3><p>Multi-step yes/no question trees guide users through up to 10 Q&amp;A steps per health domain to the right Haleon product.</p><span class="ftag">NPCResponseController.cs</span></div>
+      <div class="fcard"><div class="fn">— 04</div><h3>Live Subtitles</h3><p>Animated typed subtitles sync to audio with fade transitions. Letter mode or word mode, regex-split per sentence.</p><span class="ftag">SubtitleUI.cs</span></div>
+      <div class="fcard"><div class="fn">— 05</div><h3>Product Popups</h3><p>Contextual product images (Sensodyne, Panadol, Voltaren) appear at the right moment via PopupImageUI with 4s fade cycle.</p><span class="ftag">PopupImageUI.cs</span></div>
+      <div class="fcard"><div class="fn">— 06</div><h3>Camera System</h3><p>Cinemachine multi-angle cameras switch for cinematic presentation. Single button cycles through all virtual camera angles.</p><span class="ftag">CinemachineCameraSwitcher.cs</span></div>
+      <div class="jocard">
+        <div class="joav">🤖</div>
+        <div class="joinfo"><h3>Haleon Health Assistant</h3><p>Built entirely in Unity3D — no external AI API at runtime. Intent matching runs locally, flows are defined in C#, voice is processed by Windows Speech API. Fully offline capable for secure kiosk deployment.</p></div>
+        <div class="jobadge"><div class="ndot"></div>LIVE — Voice Ready</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="arch">
+  <div class="si">
+    <div class="slabel reveal">03 — Architecture</div>
+    <h2 class="stitle reveal">System <span>Architecture</span></h2>
+    <p class="ssub reveal">How all 22 scripts connect — from voice capture through intent, flow, output, and system layers.</p>
+    <div class="alayers reveal">
+      <div class="arow"><div class="albl">Input</div><div class="achips"><div class="chip">WindowsSpeechToText</div><div class="chip">SpeechInputManager</div><div class="chip">MicDeviceManager</div><div class="chip">MicPanelToggle</div></div></div>
+      <div class="aarrow">↓ &nbsp;User speaks → Input layer captures and sends recognised text</div>
+      <div class="arow"><div class="albl">Brain</div><div class="achips"><div class="chip">IntentMatcher</div><div class="chip">IntentType</div><div class="chip">NPCResponseController</div><div class="chip">NPCResponseControl</div></div></div>
+      <div class="aarrow">↓ &nbsp;Brain matches intent → Flow guides user through Q&amp;A tree</div>
+      <div class="arow"><div class="albl">Flow</div><div class="achips"><div class="chip">ConversationState</div><div class="chip">SimpleTextMatcher</div><div class="chip">ManualDemoController</div></div></div>
+      <div class="aarrow">↓ &nbsp;Output renders subtitles, popups, and video to screen</div>
+      <div class="arow"><div class="albl">Output</div><div class="achips"><div class="chip">SubtitleUI</div><div class="chip">SubtitleItemUI</div><div class="chip">PopupImageUI</div><div class="chip">PlayVideoManager</div></div></div>
+      <div class="aarrow">↓ &nbsp;System manages display, camera angles, and resolution</div>
+      <div class="arow"><div class="albl">System</div><div class="achips"><div class="chip">CinemachineCameraSwitcher</div><div class="chip">AnimOpenClose</div><div class="chip">DesktopDisplayManager</div><div class="chip">Resolutions</div><div class="chip">SceneLoader</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- WAVEFORM + VOICE -->
+<section id="wfsec" style="padding:0;border-top:1px solid var(--bdr);">
+  <div class="wfinner">
+    <div class="wf-text">
+      <div class="slabel reveal">04 — Voice Engine</div>
+      <h2 class="stitle reveal">Live <span>Voice Waveform</span></h2>
+      <p class="ssub reveal" style="margin-bottom:32px;">This Avatar listens in real time. Toggle mic modes below to see how the waveform changes — adaptive threshold, 4 modes, letter-by-letter transcription.</p>
+      <div class="vgrid reveal" style="margin-top:0;">
+        <div class="vc">
+          <h3>🎙 Mic Modes</h3>
+          <div class="mm"><div class="mmi">⬛</div><div><div class="mmn">Off</div><div class="mmd">Microphone fully disabled. No audio processing.</div></div></div>
+          <div class="mm"><div class="mmi">🔴</div><div><div class="mmn">Always On</div><div class="mmd">Continuous dictation — recognizer always running. Best for kiosk.</div></div></div>
+          <div class="mm"><div class="mmi">🔘</div><div><div class="mmn">Push to Talk</div><div class="mmd">Hold button → activates. Release → stops with 0.5s buffer.</div></div></div>
+          <div class="mm"><div class="mmi">🌊</div><div><div class="mmn">Voice Activation</div><div class="mmd">Adaptive noise threshold. Speech triggers, silence stops. 2s calibration.</div></div></div>
+        </div>
+        <div class="vc">
+          <h3>🧠 Intent Engine</h3>
+          <div class="irow"><div class="iico">🗣</div><div class="it"><strong>User Speech Input</strong><span>Natural language — no exact phrases needed</span></div></div>
+          <div class="iarr">↓</div>
+          <div class="irow"><div class="iico">⚙️</div><div class="it"><strong>Normalise + Score</strong><span>Lowercase, strip punctuation, keyword match</span></div></div>
+          <div class="iarr">↓</div>
+          <div class="idgrid">
+            <div class="idom"><span class="ie">🦷</span><div class="in">OralCare</div><div class="ik">teeth · gum</div></div>
+            <div class="idom"><span class="ie">🤧</span><div class="in">ColdFlu</div><div class="ik">cold · fever</div></div>
+            <div class="idom"><span class="ie">🧠</span><div class="in">Migraine</div><div class="ik">headache</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="reveal">
+      <div class="wfc">
+        <div class="wfhdr">
+          <div class="wflbl"><div class="ndot"></div>AUDIO INPUT · LIVE</div>
+          <div class="wfstat" id="wfmlbl">Mode: Always On</div>
+        </div>
+        <canvas id="wfcv" height="72"></canvas>
+        <div class="wfbtns">
+          <button class="wfbtn on" onclick="setWM('alwayson',this)">Always On</button>
+          <button class="wfbtn" onclick="setWM('ptt',this)">Push to Talk</button>
+          <button class="wfbtn" onclick="setWM('voice',this)">Voice Act.</button>
+          <button class="wfbtn" onclick="setWM('off',this)">Off</button>
+        </div>
+        <div class="wftrs" id="wftrs"></div>
+      </div>
+      <div class="subdemo">
+        <div class="subhdr">SubtitleUI — Live Preview · Letter Mode · Regex-split per sentence</div>
+        <div id="subc">
+          <div class="subline user"><div class="spk">User:</div>I have a bad headache...</div>
+          <div class="subline av"><div class="spk">Josephine:</div>I'm sorry to hear that.</div>
+          <div class="subline av"><div class="spk">Josephine:</div>Is the pain throbbing or pulsing?<span class="tcur"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3D BRAIN -->
+<section id="brain">
+  <div class="slabel" style="text-align:center">05 — Interactive 3D</div>
+  <h2 class="stitle reveal" style="text-align:center"><span>Neural Architecture</span></h2>
+  <p style="font-size:16px;color:var(--silver);text-align:center;margin-bottom:40px;line-height:1.7;" class="reveal">Every node is a real C# script. Hover to inspect. Drag to rotate. Scroll to zoom.</p>
+  <div class="bwrap reveal" id="bwrap">
+    <canvas id="bcanv"></canvas>
+    <div id="ntip" class="ntip"></div>
+  </div>
+  <p class="bhint">DRAG TO ROTATE &nbsp;·&nbsp; SCROLL TO ZOOM &nbsp;·&nbsp; HOVER NODES TO INSPECT</p>
+  <div class="bleg">
+    <div class="bli"><div class="bld" style="background:#30EA03"></div>Brain / Intent</div>
+    <div class="bli"><div class="bld" style="background:#4FC3F7"></div>Input Layer</div>
+    <div class="bli"><div class="bld" style="background:#8D979D"></div>Flow Layer</div>
+    <div class="bli"><div class="bld" style="background:#D0D3D4"></div>Output Layer</div>
+    <div class="bli"><div class="bld" style="background:#333F48"></div>System Layer</div>
+  </div>
+</section>
+
+<!-- PRODUCTS -->
+<section id="products">
+  <div class="si">
+    <div class="slabel reveal">06 — Haleon Portfolio</div>
+    <h2 class="stitle reveal">Products <span>Recommends</span></h2>
+    <p class="ssub reveal">Three health domains. Three product families. Digital Avatar routes each user to the exact right product through guided voice conversations.</p>
+    <div class="pgrid reveal">
+      <div class="pcard">
+        <div class="pctop"><div class="pglow" style="background:#30EA03"></div><span class="pemi">🦷</span><div class="pname">Sensodyne</div><div class="pcat">Oral Care Flow</div><div class="pdesc">Triggered by: teeth, sensitive, gum, enamel, cavity, toothache. Digital Avatar walks through sensitivity type, duration, and severity to recommend the right Sensodyne variant.</div></div>
+        <div class="pcbot"><div class="ptrig">Voice: <strong>"I have a toothache"</strong></div><div class="parr">→</div></div>
+      </div>
+      <div class="pcard">
+        <div class="pctop"><div class="pglow" style="background:#4FC3F7"></div><span class="pemi">💊</span><div class="pname">Panadol</div><div class="pcat">Cold &amp; Flu + Migraine Flow</div><div class="pdesc">Triggered by: fever, cold, flu, headache, pain, migraine, throbbing. Digital Avatar distinguishes general pain from migraine through targeted questions.</div></div>
+        <div class="pcbot"><div class="ptrig">Voice: <strong>"I have a headache"</strong></div><div class="parr">→</div></div>
+      </div>
+      <div class="pcard">
+        <div class="pctop"><div class="pglow" style="background:#D0D3D4"></div><span class="pemi">🩹</span><div class="pname">Voltaren</div><div class="pcat">Pain Relief Flow</div><div class="pdesc">Triggered by: joint pain, muscle, back, arthritis, inflammation, stiff. Digital Avatar identifies the pain location to guide toward the right Voltaren formulation.</div></div>
+        <div class="pcbot"><div class="ptrig">Voice: <strong>"I have joint pain"</strong></div><div class="parr">→</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FLOWS -->
+<section id="flows" style="background:rgba(6,8,7,.98);border-top:1px solid var(--bdr);">
+  <div class="si">
+    <div class="slabel reveal">07 — Conversation Flows</div>
+    <h2 class="stitle reveal">Guided <span>Health Flows</span></h2>
+    <p class="ssub reveal">Three health domains, each with up to 10 multi-step yes/no question trees guiding users to the right product.</p>
+    <div class="flgrid reveal">
+      <div class="flcard"><span class="fli">🦷</span><h3>Oral Care</h3><div class="flsteps">↳ Up to 10 Q&amp;A steps</div><div class="fleg">"Do you have sensitive teeth?" → Yes/No branch → Sensodyne recommendation</div><div class="ftree"><div class="ft"><span class="fd fdy"></span>Yes → Next step or product recommendation</div><div class="ft"><span class="fd fdn"></span>No → Skip branch or exit flow</div></div></div>
+      <div class="flcard"><span class="fli">🤧</span><h3>Cold &amp; Flu</h3><div class="flsteps">↳ Up to 10 Q&amp;A steps</div><div class="fleg">Fever + runny nose detected → Panadol / Theraflu guidance flow</div><div class="ftree"><div class="ft"><span class="fd fdy"></span>Yes → Next step or product recommendation</div><div class="ft"><span class="fd fdn"></span>No → Skip branch or exit flow</div></div></div>
+      <div class="flcard"><span class="fli">🧠</span><h3>Migraine</h3><div class="flsteps">↳ Up to 10 Q&amp;A steps</div><div class="fleg">Throbbing headache + nausea → Migraine-specific product recommendation</div><div class="ftree"><div class="ft"><span class="fd fdy"></span>Yes → Next step or product recommendation</div><div class="ft"><span class="fd fdn"></span>No → Skip branch or exit flow</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO -->
+<section id="demo">
+  <div class="si">
+    <div class="slabel reveal">08 — Demo</div>
+    <h2 class="stitle reveal">Live <span>Demo Flow</span></h2>
+    <p class="ssub reveal">Paste your YouTube or video link below. Enter key supported.</p>
+    <div class="dlayout reveal">
+      <div>
+        <div class="vwrap">
+          <div class="vph" id="vph1"><div class="vpbtn">▶</div><div class="vplbl">PASTE YOUR DEMO VIDEO LINK BELOW</div></div>
+          <iframe id="vi1" class="viframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+          <div class="virow"><input type="text" class="vinp" id="vurl1" placeholder="https://www.youtube.com/watch?v=..."/><button class="vbtn" onclick="loadVid(1)">LOAD</button></div>
+        </div>
+        <div class="vseclbl">Secondary Demo / B-Roll</div>
+        <div class="vwrap">
+          <div class="vph" id="vph2"><div class="vpbtn">▶</div><div class="vplbl">SECONDARY VIDEO SLOT</div></div>
+          <iframe id="vi2" class="viframe" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+          <div class="virow"><input type="text" class="vinp" id="vurl2" placeholder="https://www.youtube.com/watch?v=..."/><button class="vbtn" onclick="loadVid(2)">LOAD</button></div>
+        </div>
+      </div>
+      <div class="dsteps">
+        <div class="ds"><span class="dsn">01</span><div><h4>Splash / Video</h4><p>Intro video plays → PlayVideoManager auto-loads main scene after N seconds.</p></div></div>
+        <div class="ds"><span class="dsn">02</span><div><h4>Avatar Idle</h4><p>Avatar stands idle. Subtitle panel visible. Mic mode toggles between 4 states.</p></div></div>
+        <div class="ds"><span class="dsn">03</span><div><h4>User Speaks</h4><p>"I have a headache" → DictationRecognizer → IntentMatcher fires <em>Migraine</em>.</p></div></div>
+        <div class="ds"><span class="dsn">04</span><div><h4>Flow Starts</h4><p>NPCResponseController begins migraine flow. Avatar animates. Subtitles type letter by letter.</p></div></div>
+        <div class="ds"><span class="dsn">05</span><div><h4>Yes / No Loop</h4><p>User answers yes/no. Each branch leads to next step or product recommendation.</p></div></div>
+        <div class="ds"><span class="dsn">06</span><div><h4>Product Popup</h4><p>PopupImageUI fades in product image (Panadol / Sensodyne) for 4 seconds.</p></div></div>
+        <div class="ds"><span class="dsn">07</span><div><h4>Flow Exit</h4><p>"Let me know if there's anything else" → flow resets → avatar returns to idle.</p></div></div>
+        <div class="ds"><span class="dsn">08</span><div><h4>Camera Switch</h4><p>Presenter hits Switch → Cinemachine cuts to new cinematic angle.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMMANDS -->
+<section id="commands">
+  <div class="si">
+    <div class="slabel reveal">09 — Commands</div>
+    <h2 class="stitle reveal">Keyboard &amp; <span>Voice Commands</span></h2>
+    <p class="ssub reveal">Full reference for operating Josephine during demo or kiosk deployment.</p>
+    <div class="cmdg reveal">
+      <div class="cmdtbl">
+        <div class="cmdth">⌨ Keyboard &amp; Gamepad</div>
+        <div class="cmdrow"><span class="cmdact">Next step</span><span class="cmdkey">Space / → / Click</span></div>
+        <div class="cmdrow"><span class="cmdact">Previous step</span><span class="cmdkey">Backspace / ←</span></div>
+        <div class="cmdrow"><span class="cmdact">Also Next</span><span class="cmdkey">Enter / ↓</span></div>
+        <div class="cmdrow"><span class="cmdact">Also Previous</span><span class="cmdkey">Esc / ↑</span></div>
+        <div class="cmdrow"><span class="cmdact">Gamepad Next</span><span class="cmdkey">A / Cross</span></div>
+        <div class="cmdrow"><span class="cmdact">Gamepad Back</span><span class="cmdkey">B / Circle</span></div>
+        <div class="cmdrow"><span class="cmdact">Camera Switch</span><span class="cmdkey">Camera Button</span></div>
+        <div class="cmdrow"><span class="cmdact">Mic Mode Cycle</span><span class="cmdkey">Mic Button</span></div>
+        <div class="cmdrow"><span class="cmdact">Auto Demo</span><span class="cmdkey">12s idle</span></div>
+      </div>
+      <div>
+        <div class="vtlbl">🎙 Voice Trigger Phrases</div>
+        <div class="vtgrid">
+          <div class="vt"><span class="vtph">"I have a toothache"</span><span class="vtfl">OralCare</span></div>
+          <div class="vt"><span class="vtph">"Sensitive teeth"</span><span class="vtfl">OralCare</span></div>
+          <div class="vt"><span class="vtph">"I have a cold"</span><span class="vtfl">Cold &amp; Flu</span></div>
+          <div class="vt"><span class="vtph">"I have a fever"</span><span class="vtfl">Cold &amp; Flu</span></div>
+          <div class="vt"><span class="vtph">"I have a headache"</span><span class="vtfl">Migraine</span></div>
+          <div class="vt"><span class="vtph">"I have a migraine"</span><span class="vtfl">Migraine</span></div>
+          <div class="vt"><span class="vtph">"Hi / Hello"</span><span class="vtfl">Greeting</span></div>
+          <div class="vt"><span class="vtph">"Yes / Yeah"</span><span class="vtfl">YES branch</span></div>
+          <div class="vt"><span class="vtph">"No / Nope"</span><span class="vtfl">NO branch</span></div>
+          <div class="vt"><span class="vtph">"Next / Thanks"</span><span class="vtfl">Continue</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="slabel reveal" style="margin-top:44px">All 22 C# Scripts</div>
+    <div class="scg reveal">
+      <div class="scp">WindowsSpeechToText</div><div class="scp">SpeechInputManager</div><div class="scp">MicDeviceManager</div><div class="scp">MicPanelToggle</div><div class="scp">IntentMatcher</div>
+      <div class="scp">IntentType</div><div class="scp">NPCResponseController</div><div class="scp">NPCResponseControl</div><div class="scp">ConversationState</div><div class="scp">SimpleTextMatcher</div>
+      <div class="scp">ManualDemoController</div><div class="scp">SubtitleUI</div><div class="scp">SubtitleItemUI</div><div class="scp">PopupImageUI</div><div class="scp">PlayVideoManager</div>
+      <div class="scp">CinemachineCameraSwitcher</div><div class="scp">AnimOpenClose</div><div class="scp">DesktopDisplayManager</div><div class="scp">Resolutions</div><div class="scp">ScreenModeSetting</div>
+      <div class="scp">SceneLoader</div><div class="scp">NPCResponseData</div>
+    </div>
+  </div>
+</section>
+
+<!-- TIMELINE (NEW) -->
+<section id="timeline">
+  <div class="si">
+    <div class="slabel reveal">10 — Build Journey</div>
+    <h2 class="stitle reveal">Project <span>Timeline</span></h2>
+    <p class="ssub reveal">From brief to live kiosk — the key milestones in building Josephine.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;" class="reveal">
+      <div class="tline">
+        <div class="titem"><div class="tdot"></div><div class="ttag">Phase 1 — Brief</div><div class="th">Project Scoping &amp; Brief</div><div class="tp">Received brief from Haleon SSL. Defined 3 health domains, kiosk hardware target, and offline-first requirements. Confirmed Unity3D as the platform.</div></div>
+        <div class="titem"><div class="tdot"></div><div class="ttag">Phase 2 — Architecture</div><div class="th">22-Script Architecture Design</div><div class="tp">Designed the full C# script architecture across 5 layers: Input → Brain → Flow → Output → System. Established the IntentMatcher keyword model.</div></div>
+        <div class="titem"><div class="tdot"></div><div class="ttag">Phase 3 — Core Build</div><div class="th">Voice + Intent Engine</div><div class="tp">Built WindowsSpeechToText.cs with 4 mic modes. Developed IntentMatcher.cs with per-domain keyword scoring and tie-breaking logic.</div></div>
+      </div>
+      <div class="tline">
+        <div class="titem"><div class="tdot"></div><div class="ttag">Phase 4 — Flows</div><div class="th">Health Flow Implementation</div><div class="tp">Implemented all 3 health domain Q&amp;A flows in NPCResponseController.cs. Wired yes/no branching, PopupImageUI product appearances, and flow exit logic.</div></div>
+        <div class="titem"><div class="tdot"></div><div class="ttag">Phase 5 — Polish</div><div class="th">Subtitles, Camera &amp; UI</div><div class="tp">Added SubtitleUI letter-mode typing animation, Cinemachine multi-angle camera switcher, and ManualDemoController for keyboard/gamepad/touch input.</div></div>
+        <div class="titem"><div class="tdot"></div><div class="ttag">Phase 6 — Deploy</div><div class="th">Kiosk Testing &amp; Deployment</div><div class="tp">Configured DesktopDisplayManager for kiosk resolution, tested all 4 mic modes in retail noise conditions, and deployed to Haleon SSL kiosk hardware.</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Q&A + QUIZ -->
+<section id="activity">
+  <div class="si">
+    <div class="slabel reveal">11 — Team Activity</div>
+    <h2 class="stitle reveal">Q&amp;A + <span>Team Quiz</span></h2>
+    <p class="ssub reveal">Common questions about the project — and a live quiz to test your team's understanding.</p>
+    <div class="agrid reveal">
+      <div class="qastack" id="qastack">
+        <div class="qaitem" onclick="toggleQA(this)"><div class="qaq"><span class="qatext">What makes Digital Avatar different from a chatbot?</span><div class="qaico">+</div></div><div class="qaa"><div class="qaai">A Digital Avatar is a real-time Unity3D avatar — she speaks, listens, and animates. She runs entirely locally on a Windows kiosk, uses Cinemachine cameras for cinematic angles, and has a full 3D presence with subtitles, product popups, and voice-driven flows. No cloud dependency, no lag.</div></div></div>
+        <div class="qaitem" onclick="toggleQA(this)"><div class="qaq"><span class="qatext">Does it require internet to work?</span><div class="qaico">+</div></div><div class="qaa"><div class="qaai">No. Digital Avatar uses Windows Speech API which processes voice locally. Intent matching runs in C# locally. All conversation flows are hardcoded in NPCResponseData. The system is fully offline — ideal for secure retail kiosk environments.</div></div></div>
+        <div class="qaitem" onclick="toggleQA(this)"><div class="qaq"><span class="qatext">How does she know what health issue the user has?</span><div class="qaico">+</div></div><div class="qaa"><div class="qaai">IntentMatcher.cs scores keyword hits per health domain (Oral Care, Cold &amp; Flu, Migraine). Each domain has a weighted keyword list. The highest-scoring domain wins, with tie-breaking logic to handle ambiguous inputs like "I have pain".</div></div></div>
+        <div class="qaitem" onclick="toggleQA(this)"><div class="qaq"><span class="qatext">How many people does Digital Avatar work with at once?</span><div class="qaico">+</div></div><div class="qaa"><div class="qaai">One person at a time per kiosk — designed for 1-on-1 guided conversations. You can deploy multiple kiosks in parallel, each running its own independent instance, scaling to any retail footprint.</div></div></div>
+        <div class="qaitem" onclick="toggleQA(this)"><div class="qaq"><span class="qatext">Can we add new products or health topics?</span><div class="qaico">+</div></div><div class="qaa"><div class="qaai">Yes. New domains: (1) add IntentType enum value, (2) add keyword arrays to IntentMatcher, (3) define Q&amp;A flow in NPCResponseData. Product images swap in PopupImageUI. No engine rebuild needed.</div></div></div>
+        <div class="qaitem" onclick="toggleQA(this)"><div class="qaq"><span class="qatext">What's the camera system for?</span><div class="qaico">+</div></div><div class="qaa"><div class="qaai">CinemachineCameraSwitcher cycles through Cinemachine virtual cameras. One button cuts between cinematic angles — close-up, wide shot, side profile — making the demo feel broadcast-quality rather than a static screen.</div></div></div>
+      </div>
+      <div class="qzcard">
+        <h3>🎯 Team Quiz</h3>
+        <div class="qzsub" id="qzscore">Test your understanding of the Digital Avatar</div>
+        <div class="qzprog" id="qzprog"></div>
+        <div class="qzq" id="qzq">Loading...</div>
+        <div class="qzopts" id="qzopts"></div>
+        <div class="qzfb" id="qzfb"></div>
+        <button class="qznext" id="qznext" onclick="nextQ()">Next Question →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OUTRO -->
+<section id="outro">
+  <div class="owrap reveal">
+    <h2 class="otitle"><span class="l1">Built.</span><span class="l2">Deployed.</span><span class="l3">Ready.</span></h2>
+    <div class="ostats">
+      <div class="ost"><span class="oi">🎙</span><div class="on">22</div><div class="ol">C# Scripts</div></div>
+      <div class="oline"></div>
+      <div class="ost"><span class="oi">🧠</span><div class="on">3</div><div class="ol">Health Flows</div></div>
+      <div class="oline"></div>
+      <div class="ost"><span class="oi">🖥</span><div class="on">4</div><div class="ol">Input Methods</div></div>
+      <div class="oline"></div>
+      <div class="ost"><span class="oi">💊</span><div class="on">∞</div><div class="ol">Scalability</div></div>
+    </div>
+    <div class="ocred">· Digital Avatar Chatbot · <span class="ocg">Haleon SSL</span><br><strong>Sai Deepak</strong> · Unity3D / C# / Windows Speech API / Cinemachine</div>
+  </div>
+</section>
+
+<script>
+'use strict';
+
+// ── LOADER ──────────────────────────────────────────────
+window.addEventListener('load',()=>setTimeout(()=>document.getElementById('ldr').classList.add('gone'),2200));
+
+// ── SCROLL PROGRESS BAR ─────────────────────────────────
+window.addEventListener('scroll',()=>{
+  const bar=document.getElementById('progress-bar');
+  const pct=window.scrollY/(document.body.scrollHeight-window.innerHeight)*100;
+  bar.style.width=Math.min(100,pct)+'%';
+});
+
+// ── CURSOR ───────────────────────────────────────────────
+const $cur=document.getElementById('cur'),
+      $curR=document.getElementById('curR');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;$cur.style.left=mx+'px';$cur.style.top=my+'px';});
+(function animR(){rx+=(mx-rx)*.11;ry+=(my-ry)*.11;$curR.style.left=rx+'px';$curR.style.top=ry+'px';requestAnimationFrame(animR);})();
+
+// ── BG THREE.JS ──────────────────────────────────────────
+const bgCanvas=document.getElementById('bgc');
+const bgRen=new THREE.WebGLRenderer({canvas:bgCanvas,alpha:true,antialias:false});
+bgRen.setPixelRatio(Math.min(window.devicePixelRatio,2));
+bgRen.setSize(window.innerWidth,window.innerHeight);
+const bgScene=new THREE.Scene();
+const bgCam=new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,.1,1000);
+bgCam.position.z=5;
+
+// Particles — green + steel mix
+const PC=2200;
+const pGeo=new THREE.BufferGeometry();
+const pPos=new Float32Array(PC*3),pSz=new Float32Array(PC),pClr=new Float32Array(PC*3);
+const cG=new THREE.Color(0x30EA03),cS=new THREE.Color(0x333F48);
+for(let i=0;i<PC;i++){
+  pPos[i*3]=(Math.random()-.5)*30; pPos[i*3+1]=(Math.random()-.5)*22; pPos[i*3+2]=(Math.random()-.5)*15;
+  pSz[i]=Math.random()*1.7+.3;
+  const c=Math.random()>.72?cG:cS;
+  pClr[i*3]=c.r; pClr[i*3+1]=c.g; pClr[i*3+2]=c.b;
+}
+pGeo.setAttribute('position',new THREE.BufferAttribute(pPos,3));
+pGeo.setAttribute('aSize',new THREE.BufferAttribute(pSz,1));
+pGeo.setAttribute('aColor',new THREE.BufferAttribute(pClr,3));
+const pMat=new THREE.ShaderMaterial({
+  uniforms:{uT:{value:0},uM:{value:new THREE.Vector2()}},
+  vertexShader:`attribute float aSize;attribute vec3 aColor;varying vec3 vC;uniform float uT;uniform vec2 uM;
+    void main(){vC=aColor;vec3 p=position;float d=length(p.xy-uM*9.);float r=smoothstep(3.5,0.,d)*.48;
+    if(d>0.)p.xy+=normalize(p.xy-uM*9.)*r;
+    p.y+=sin(uT*.3+p.x*.25)*.15;p.x+=cos(uT*.25+p.z*.3)*.09;
+    vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=aSize*(280./-mv.z);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`varying vec3 vC;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;
+    float a=pow(1.-d*2.,2.);gl_FragColor=vec4(vC,a*.48);}`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending
+});
+bgScene.add(new THREE.Points(pGeo,pMat));
+
+// Floating avatar sphere (right side)
+const bSp=new THREE.Mesh(new THREE.SphereGeometry(1.6,34,34),new THREE.MeshBasicMaterial({color:0x30EA03,wireframe:true,transparent:true,opacity:.055}));
+bSp.position.set(4.5,0,0); bgScene.add(bSp);
+const bSpi=new THREE.Mesh(new THREE.SphereGeometry(1.0,28,28),new THREE.MeshBasicMaterial({color:0x040506,transparent:true,opacity:.97}));
+bSpi.position.copy(bSp.position); bgScene.add(bSpi);
+const mkT=(r,rx2,c,o)=>{const m=new THREE.Mesh(new THREE.TorusGeometry(r,.005,8,90),new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:o}));m.rotation.x=rx2;m.position.copy(bSp.position);bgScene.add(m);return m;};
+const [bR1,bR2,bR3]=[mkT(2.1,Math.PI/2,0x30EA03,.38),mkT(2.6,Math.PI/3,0x30EA03,.16),mkT(3.2,Math.PI/6,0x8D979D,.1)];
+const grid=new THREE.GridHelper(34,34,0x1A2A1A,0x0D160D);
+grid.position.y=-5; grid.material.transparent=true; grid.material.opacity=.28; bgScene.add(grid);
+const bgOrbs=Array.from({length:10},(_,i)=>{
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.05,8,8),new THREE.MeshBasicMaterial({color:0x30EA03,transparent:true,opacity:.65}));
+  bgScene.add(m); return{mesh:m,phase:(i/10)*Math.PI*2,radius:2.1+(i%3)*.48};
+});
+let bgMX=0,bgMY=0,bgSY=0;
+document.addEventListener('mousemove',e=>{
+  bgMX=(e.clientX/window.innerWidth-.5)*2;
+  bgMY=-(e.clientY/window.innerHeight-.5)*2;
+  pMat.uniforms.uM.value.set(bgMX,bgMY);
+});
+window.addEventListener('scroll',()=>bgSY=window.scrollY);
+const bgClk=new THREE.Clock();
+(function bgLoop(){
+  requestAnimationFrame(bgLoop);
+  const t=bgClk.getElapsedTime();
+  pMat.uniforms.uT.value=t;
+  bSp.rotation.y=t*.16; bSp.rotation.x=t*.055;
+  bSpi.rotation.copy(bSp.rotation);
+  bR1.rotation.z=t*.24; bR2.rotation.z=-t*.15; bR3.rotation.z=t*.09;
+  bgOrbs.forEach((o,i)=>{const a=o.phase+t*(.4+i*.04);o.mesh.position.set(4.5+Math.cos(a)*o.radius,Math.sin(a*.7)*.5,Math.sin(a)*o.radius);});
+  const sf=bgSY/Math.max(1,document.body.scrollHeight-window.innerHeight);
+  bgCam.position.y=sf*-3.2; bgCam.position.x=bgMX*.22; bgCam.lookAt(0,bgCam.position.y,0);
+  bSp.position.x=4.5+bgMX*.1; bSp.position.y=bgMY*.1;
+  bSpi.position.copy(bSp.position);
+  bR1.position.copy(bSp.position); bR2.position.copy(bSp.position); bR3.position.copy(bSp.position);
+  bgRen.render(bgScene,bgCam);
+})();
+window.addEventListener('resize',()=>{bgCam.aspect=window.innerWidth/window.innerHeight;bgCam.updateProjectionMatrix();bgRen.setSize(window.innerWidth,window.innerHeight);});
+
+// ── HERO AVATAR THREE.JS ─────────────────────────────────
+const avEl=document.getElementById('avc');
+const avRen=new THREE.WebGLRenderer({canvas:avEl,alpha:true,antialias:true});
+avRen.setPixelRatio(Math.min(window.devicePixelRatio,2));
+const avScene=new THREE.Scene();
+const avCam=new THREE.PerspectiveCamera(45,1,.1,100);
+avCam.position.set(0,0,5);
+function sizeAv(){
+  const w=avEl.parentElement.clientWidth,h=avEl.parentElement.clientHeight;
+  avRen.setSize(w,h); avCam.aspect=w/h; avCam.updateProjectionMatrix();
+}
+// Outer wireframe
+const avOuter=new THREE.Mesh(new THREE.SphereGeometry(1.6,40,40),new THREE.MeshBasicMaterial({color:0x30EA03,wireframe:true,transparent:true,opacity:.17}));
+avScene.add(avOuter);
+// Inner fill
+const avInner=new THREE.Mesh(new THREE.SphereGeometry(1.38,32,32),new THREE.MeshBasicMaterial({color:0x07090A,transparent:true,opacity:.95}));
+avScene.add(avInner);
+// Second rotated wireframe layer
+const avOuter2=new THREE.Mesh(new THREE.SphereGeometry(1.52,40,40),new THREE.MeshBasicMaterial({color:0x30EA03,wireframe:true,transparent:true,opacity:.055}));
+avOuter2.rotation.set(Math.PI/4,Math.PI/6,0); avScene.add(avOuter2);
+// Rings
+[[1.95,Math.PI/2,.32],[2.25,Math.PI/3,.16],[2.55,Math.PI/7,.09]].forEach(([r,rx3,o])=>{
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(r,.005,8,90),new THREE.MeshBasicMaterial({color:0x30EA03,transparent:true,opacity:o}));
+  ring.rotation.x=rx3; avScene.add(ring);
+});
+// Orbiting dots
+const avOrbs=Array.from({length:6},(_,i)=>{
+  const m=new THREE.Mesh(new THREE.SphereGeometry(.052,8,8),new THREE.MeshBasicMaterial({color:0x30EA03,transparent:true,opacity:.75}));
+  avScene.add(m); return{mesh:m,phase:(i/6)*Math.PI*2,r:2+(i%2)*.3,spd:.38+i*.07};
+});
+let avMX=0,avMY=0;
+avEl.addEventListener('mousemove',e=>{const r=avEl.getBoundingClientRect();avMX=(e.clientX-r.left)/r.width-.5;avMY=(e.clientY-r.top)/r.height-.5;});
+const avClk=new THREE.Clock();
+sizeAv(); window.addEventListener('resize',sizeAv);
+(function avLoop(){
+  requestAnimationFrame(avLoop);
+  const t=avClk.getElapsedTime();
+  avOuter.rotation.y=t*.17+avMX*1.4; avOuter.rotation.x=t*.065+avMY*.75;
+  avOuter2.rotation.y=-t*.11; avOuter2.rotation.x=t*.05;
+  avInner.rotation.copy(avOuter.rotation);
+  avOrbs.forEach(o=>{const a=o.phase+t*o.spd;o.mesh.position.set(Math.cos(a)*o.r,Math.sin(a*.7)*.48,Math.sin(a)*o.r);});
+  avRen.render(avScene,avCam);
+})();
+
+// ── WAVEFORM ─────────────────────────────────────────────
+const wfCv=document.getElementById('wfcv');
+const wfCtx=wfCv.getContext('2d');
+let wfMode='alwayson',wfOn=true;
+const wfData=Array.from({length:80},()=>0);
+const wfLines=['I have a headache','Yes, it is throbbing','Any nausea with that?','Sensitive to cold drinks?','Sensodyne Rapid Relief','Panadol Extra recommended','Voltaren gel for joint pain','Cold and flu detected'];
+let wfLIdx=0;
+
+function setWM(mode,btn){
+  wfMode=mode; wfOn=(mode!=='off');
+  document.querySelectorAll('.wfbtn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('wfmlbl').textContent='Mode: '+btn.textContent;
+}
+function rszWf(){const w=wfCv.parentElement.clientWidth-60;wfCv.width=Math.max(1,w);wfCv.height=72;}
+rszWf(); window.addEventListener('resize',rszWf);
+
+function addWfTr(){
+  const c=document.getElementById('wftrs');
+  if(c.children.length>=4) c.removeChild(c.firstChild);
+  const d=document.createElement('div'); d.className='wftr';
+  const isU=Math.random()>.42;
+  d.innerHTML=`<div class="wfs">${isU?'USER':'JOSEPHINE'}</div>${wfLines[wfLIdx%wfLines.length]}`;
+  c.appendChild(d); wfLIdx++;
+}
+setInterval(()=>{if(wfOn)addWfTr();},3000);
+
+(function wfLoop(){
+  requestAnimationFrame(wfLoop);
+  if(!wfCtx||!wfCv.width)return;
+  const w=wfCv.width,h=wfCv.height;
+  wfCtx.clearRect(0,0,w,h);
+  wfData.shift();
+  if(wfOn){
+    const base=wfMode==='alwayson'?16:wfMode==='ptt'?22:wfMode==='voice'?14:0;
+    wfData.push(base+Math.random()*30*(Math.random()>.28?1:.08));
+  } else { wfData.push(0); }
+  const bW=w/wfData.length;
+  wfData.forEach((v,i)=>{
+    const bh=Math.max(2,v/52*h*.88);
+    const x=i*bW,y=(h-bh)/2;
+    const alpha=.28+.72*(v/52);
+    wfCtx.fillStyle=`rgba(48,234,3,${alpha})`;
+    wfCtx.fillRect(x+.5,y,Math.max(1,bW-1.5),bh);
+  });
+  if(wfMode==='voice'){
+    wfCtx.strokeStyle='rgba(208,211,212,.2)';
+    wfCtx.lineWidth=1; wfCtx.setLineDash([4,4]);
+    wfCtx.beginPath(); wfCtx.moveTo(0,h/2); wfCtx.lineTo(w,h/2); wfCtx.stroke();
+    wfCtx.setLineDash([]);
+  }
+})();
+
+// ── SUBTITLE CYCLING ─────────────────────────────────────
+const subLines=[
+  {r:'user',t:'I have a bad headache...'},{r:'av',t:"I'm sorry to hear that."},
+  {r:'av',t:'Is the pain throbbing or pulsing?'},{r:'user',t:'Yes, it started this morning.'},
+  {r:'av',t:'Are you also feeling nauseous?'},{r:'user',t:'A little bit, yes.'},
+  {r:'av',t:'Based on your symptoms, I recommend Panadol Extra.'},{r:'user',t:'I have a toothache.'},
+  {r:'av',t:'Let me help you with that.'},{r:'av',t:'Do you experience sensitivity to cold drinks?'},
+  {r:'user',t:'Yes, especially cold water.'},{r:'av',t:'Sensodyne Rapid Relief would be ideal for you.'},
+  {r:'user',t:'I have a blocked nose and fever.'},{r:'av',t:'That sounds like a cold or flu.'},
+  {r:'av',t:'Have you had these symptoms for more than 2 days?'},
+];
+let sIdx=0;
+const subC=document.getElementById('subc');
+function addSub(){
+  const s=subLines[sIdx%subLines.length];
+  while(subC.children.length>4) subC.removeChild(subC.firstChild);
+  const d=document.createElement('div');
+  d.className='subline '+s.r;
+  d.innerHTML=`<div class="spk">${s.r==='user'?'User:':'Josephine:'}</div>${s.t}${s.r==='av'?'<span class="tcur"></span>':''}`;
+  subC.appendChild(d);
+  subC.querySelectorAll('.tcur').forEach((c,i,a)=>{if(i<a.length-1)c.remove();});
+  sIdx++;
+}
+setInterval(addSub,2800);
+
+// ── 3D BRAIN ─────────────────────────────────────────────
+const bEl=document.getElementById('bcanv');
+const bRen=new THREE.WebGLRenderer({canvas:bEl,alpha:true,antialias:true});
+bRen.setPixelRatio(Math.min(window.devicePixelRatio,2));
+const bScene=new THREE.Scene(),bCam2=new THREE.PerspectiveCamera(52,1,.1,100);
+bCam2.position.set(0,0,10);
+
+const ND=[
+  {p:[0,0,0],       l:'IntentMatcher',           ly:'Brain',  d:'Core scoring engine. Normalises input, scores per-domain keywords, applies tie-breaking logic.',c:0x30EA03,s:.24},
+  {p:[-3.6,2.1,.6], l:'WindowsSpeechToText',      ly:'Input',  d:'DictationRecognizer via Windows.Speech. GetMicLevel() waveform. 0.15s send delay. Auto-restarts on error.',c:0x4FC3F7,s:.16},
+  {p:[-3.3,.5,-.6], l:'SpeechInputManager',        ly:'Input',  d:'Coordinates mic mode state machine. Bridges STT output to IntentMatcher.',c:0x4FC3F7,s:.14},
+  {p:[-3.6,-1.2,.3],l:'MicDeviceManager',          ly:'Input',  d:'Hot-swap microphone devices. Auto-refreshes list every 2 seconds.',c:0x4FC3F7,s:.13},
+  {p:[-2.9,-2.6,0], l:'MicPanelToggle',            ly:'Input',  d:'UI control cycling: Off → AlwaysOn → PushToTalk → VoiceActivation.',c:0x4FC3F7,s:.12},
+  {p:[0,3,.9],      l:'NPCResponseController',     ly:'Flow',   d:'Three health domains, up to 10 Q&A steps each. Routes Yes/No branches. Fires PopupImageUI at key steps.',c:0x8D979D,s:.18},
+  {p:[.6,-3,-.6],   l:'ConversationState',          ly:'Flow',   d:'Tracks current flow position, step index, active domain, and intent history.',c:0x8D979D,s:.15},
+  {p:[-.6,0,3.4],   l:'ManualDemoController',       ly:'Flow',   d:'Keyboard/Gamepad/Mouse input. 12s idle → auto-plays. All key bindings supported.',c:0x8D979D,s:.14},
+  {p:[3.3,1.9,-.4], l:'SubtitleUI',                ly:'Output', d:'Letter or word mode typing. Regex-splits on . ! ? for per-sentence display. Fade transitions.',c:0xD0D3D4,s:.17},
+  {p:[3.6,-.5,.9],  l:'PopupImageUI',              ly:'Output', d:'Fades in product sprite (Sensodyne, Panadol, Voltaren) at key steps. 4s display, smooth alpha fade.',c:0xD0D3D4,s:.15},
+  {p:[3.1,-2.3,0],  l:'PlayVideoManager',           ly:'Output', d:'Delays N seconds then auto-loads Scene 1. Configurable delay in Inspector.',c:0xD0D3D4,s:.13},
+  {p:[1.6,.6,-3.2], l:'CinemachineCameraSwitcher',  ly:'System', d:'Array of Cinemachine virtual cameras. Single button cycles angles. Smooth blending.',c:0x333F48,s:.16},
+  {p:[-1.6,-.9,-3.2],l:'DesktopDisplayManager',    ly:'System', d:'Resolution and refresh-rate dropdowns. 3 screen modes: Windowed / Borderless / Exclusive.',c:0x333F48,s:.14},
+  {p:[0,0,-3.8],    l:'AnimOpenClose',              ly:'System', d:'Expand/collapse UI panel animations for PPT, Camera, and Switch controls.',c:0x333F48,s:.12},
+];
+
+const nGrp=new THREE.Group();
+const nMeshes=[];
+ND.forEach(n=>{
+  const mesh=new THREE.Mesh(new THREE.SphereGeometry(n.s,22,22),new THREE.MeshBasicMaterial({color:n.c,transparent:true,opacity:.9}));
+  mesh.position.set(...n.p); mesh.userData=Object.assign({},n); nGrp.add(mesh); nMeshes.push(mesh);
+  // Halo ring
+  const halo=new THREE.Mesh(new THREE.RingGeometry(n.s+.05,n.s+.13,32),new THREE.MeshBasicMaterial({color:n.c,transparent:true,opacity:.17,side:THREE.DoubleSide}));
+  halo.position.set(...n.p); nGrp.add(halo);
+  // Pulse ring
+  const pr=new THREE.Mesh(new THREE.RingGeometry(n.s,n.s+.026,32),new THREE.MeshBasicMaterial({color:n.c,transparent:true,opacity:.58,side:THREE.DoubleSide}));
+  pr.position.set(...n.p); pr.userData={isPulse:true,ph:Math.random()*Math.PI*2}; nGrp.add(pr);
+});
+
+// Connections
+[[0,1],[0,2],[0,3],[0,4],[0,5],[0,6],[0,7],[0,8],[0,9],[0,10],[0,11],[0,12],[0,13],
+ [1,2],[2,3],[3,4],[5,6],[5,8],[8,9],[9,10],[11,12],[12,13],[7,11],[6,13],[1,5]].forEach(([a,b])=>{
+  const pa=new THREE.Vector3(...ND[a].p),pb=new THREE.Vector3(...ND[b].p);
+  const pts=[];
+  for(let i=0;i<=24;i++){const t=i/24;const mp=pa.clone().lerp(pb,t);mp.y+=Math.sin(t*Math.PI)*.07;pts.push(mp);}
+  nGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x30EA03,transparent:true,opacity:.08})));
+});
+bScene.add(nGrp);
+
+// Ambient brain particles
+const bpPos=new Float32Array(400*3);
+for(let i=0;i<400;i++){bpPos[i*3]=(Math.random()-.5)*14;bpPos[i*3+1]=(Math.random()-.5)*10;bpPos[i*3+2]=(Math.random()-.5)*10;}
+const bpG=new THREE.BufferGeometry(); bpG.setAttribute('position',new THREE.BufferAttribute(bpPos,3));
+bScene.add(new THREE.Points(bpG,new THREE.PointsMaterial({color:0x182818,size:.032,transparent:true,opacity:.48})));
+
+// Interaction
+const bRay=new THREE.Raycaster(),bMouse=new THREE.Vector2(-9,-9);
+const ntip=document.getElementById('ntip');
+let hovNode=null,isDrag=false,dragSt={x:0,y:0},rotY=0,rotX=0,tRotY=0,tRotX=0,zoom=10,tZoom=10;
+const bWrap=document.getElementById('bwrap');
+
+bWrap.addEventListener('mousemove',e=>{
+  const rect=bEl.getBoundingClientRect();
+  const x=e.clientX-rect.left,y=e.clientY-rect.top;
+  bMouse.x=(x/rect.width)*2-1; bMouse.y=-(y/rect.height)*2+1;
+  if(isDrag){tRotY+=(e.clientX-dragSt.x)*.008;tRotX+=(e.clientY-dragSt.y)*.004;dragSt={x:e.clientX,y:e.clientY};}
+  ntip.style.left=Math.min(x+18,bEl.clientWidth-250)+'px';
+  ntip.style.top=Math.max(10,y-40)+'px';
+});
+bWrap.addEventListener('mousedown',e=>{isDrag=true;dragSt={x:e.clientX,y:e.clientY};bWrap.style.cursor='grabbing';e.preventDefault();});
+window.addEventListener('mouseup',()=>{isDrag=false;bWrap.style.cursor='crosshair';});
+bWrap.addEventListener('wheel',e=>{tZoom=Math.max(5,Math.min(16,tZoom+e.deltaY*.011));e.preventDefault();},{passive:false});
+bWrap.addEventListener('mouseleave',()=>{bMouse.set(-9,-9);ntip.classList.remove('show');});
+
+function rszBrain(){
+  const w=bWrap.clientWidth,h=bWrap.clientHeight;
+  bRen.setSize(w,h); bCam2.aspect=w/h; bCam2.updateProjectionMatrix();
+}
+rszBrain(); window.addEventListener('resize',rszBrain);
+
+const bClk=new THREE.Clock();
+(function bLoop(){
+  requestAnimationFrame(bLoop);
+  const t=bClk.getElapsedTime();
+  if(!isDrag) tRotY+=.0032;
+  rotY+=(tRotY-rotY)*.08; rotX+=(tRotX-rotX)*.08;
+  rotX=Math.max(-.7,Math.min(.7,rotX));
+  nGrp.rotation.y=rotY; nGrp.rotation.x=rotX;
+  zoom+=(tZoom-zoom)*.08; bCam2.position.z=zoom;
+
+  nGrp.children.forEach(c=>{
+    if(c.userData.isPulse){
+      const s=1+.44*Math.sin(t*1.85+c.userData.ph);
+      c.scale.setScalar(s); c.material.opacity=.26*(1-(s-1)/.44);
+    }
+  });
+
+  bRay.setFromCamera(bMouse,bCam2);
+  const hits=bRay.intersectObjects(nMeshes);
+  if(hits.length){
+    const hit=hits[0].object;
+    if(hovNode!==hit){
+      hovNode=hit;
+      const d=hit.userData;
+      ntip.innerHTML=`<strong>${d.l}</strong><span class="ltag">${d.ly} Layer</span>${d.d}`;
+      ntip.classList.add('show');
+    }
+    hit.scale.lerp(new THREE.Vector3(1.5,1.5,1.5),.14);
+  } else {
+    if(hovNode){hovNode.scale.lerp(new THREE.Vector3(1,1,1),.12);hovNode=null;}
+    ntip.classList.remove('show');
+  }
+  nMeshes.forEach(m=>{if(m!==hovNode)m.scale.lerp(new THREE.Vector3(1,1,1),.1);});
+  try{bRen.render(bScene,bCam2);}catch(err){}
+})();
+
+// ── VIDEO ────────────────────────────────────────────────
+function getEmbed(u){
+  if(!u)return null;
+  const yt=u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\s]+)/);
+  if(yt)return`https://www.youtube.com/embed/${yt[1]}?autoplay=1`;
+  if(u.includes('youtube.com/embed/'))return u+(u.includes('?')?'&autoplay=1':'?autoplay=1');
+  const vm=u.match(/vimeo\.com\/(\d+)/);
+  if(vm)return`https://player.vimeo.com/video/${vm[1]}?autoplay=1`;
+  return u;
+}
+function loadVid(n){
+  const url=document.getElementById('vurl'+n).value.trim();
+  const em=getEmbed(url); if(!em)return;
+  document.getElementById('vi'+n).src=em;
+  document.getElementById('vi'+n).style.display='block';
+  document.getElementById('vph'+n).style.display='none';
+}
+document.getElementById('vph1').addEventListener('click',()=>{const u=document.getElementById('vurl1').value.trim();if(u)loadVid(1);});
+document.getElementById('vph2').addEventListener('click',()=>{const u=document.getElementById('vurl2').value.trim();if(u)loadVid(2);});
+document.getElementById('vurl1').addEventListener('keydown',e=>{if(e.key==='Enter')loadVid(1);});
+document.getElementById('vurl2').addEventListener('keydown',e=>{if(e.key==='Enter')loadVid(2);});
+
+// ── Q&A ACCORDION ────────────────────────────────────────
+function toggleQA(el){
+  const open=el.classList.contains('open');
+  document.querySelectorAll('.qaitem').forEach(i=>i.classList.remove('open'));
+  if(!open)el.classList.add('open');
+}
+
+// ── QUIZ ─────────────────────────────────────────────────
+const qData=[
+  {q:'What Unity package handles camera switching in Digital Avatar?',opts:['Unity Recorder','Cinemachine','Post Processing Stack','Timeline'],a:1,ex:'CinemachineCameraSwitcher.cs cycles an array of Cinemachine virtual cameras with a single button press.'},
+  {q:'Which C# script is the "brain" that detects the user\'s health intent?',opts:['NPCResponseController','ConversationState','IntentMatcher','SpeechInputManager'],a:2,ex:'IntentMatcher.cs scores keyword hits per health domain and routes to the correct flow.'},
+  {q:'How many microphone modes does Digital Avatar support?',opts:['2','3','4','5'],a:2,ex:'Off, Always-On, Push-to-Talk, and Voice Activation — 4 modes managed by SpeechInputManager.'},
+  {q:'What happens after 12 seconds of idle time?',opts:['System shuts down','Screensaver appears','Auto demo mode plays','Digital Avatar says goodbye'],a:2,ex:'ManualDemoController detects 12s of inactivity and automatically advances the demo steps.'},
+  {q:'Which product is recommended for throbbing headache + nausea?',opts:['Sensodyne','Voltaren','Theraflu','Panadol Extra'],a:3,ex:'The Migraine flow routes throbbing pain + nausea to Panadol Extra.'},
+  {q:'Does Digital Avatar require internet to function?',opts:['Yes, for AI responses','Yes, for voice recognition','No — fully offline','Only for product images'],a:2,ex:'All processing is local: Windows Speech API for voice, C# for AI, flows hardcoded in C#.'},
+];
+let qI=0,qScore=0,qAnswered=false;
+function renderQ(){
+  const q=qData[qI];
+  document.getElementById('qzq').textContent=q.q;
+  const opts=document.getElementById('qzopts'); opts.innerHTML='';
+  q.opts.forEach((o,i)=>{
+    const b=document.createElement('button');
+    b.className='qzopt'; b.textContent=o; b.onclick=()=>ansQ(i);
+    opts.appendChild(b);
+  });
+  const fb=document.getElementById('qzfb'); fb.className='qzfb'; fb.textContent='';
+  document.getElementById('qznext').style.display='none';
+  const prog=document.getElementById('qzprog'); prog.innerHTML='';
+  qData.forEach((_,i)=>{const d=document.createElement('div');d.className='qzdot'+(i<qI?' done':'');prog.appendChild(d);});
+  document.getElementById('qzscore').textContent=`Question ${qI+1} of ${qData.length}  ·  Score: ${qScore}/${qI}`;
+  qAnswered=false;
+}
+function ansQ(i){
+  if(qAnswered)return; qAnswered=true;
+  const q=qData[qI];
+  document.querySelectorAll('.qzopt').forEach((o,j)=>{
+    if(j===q.a)o.classList.add('correct');
+    else if(j===i&&i!==q.a)o.classList.add('wrong');
+  });
+  if(i===q.a)qScore++;
+  const fb=document.getElementById('qzfb');
+  fb.className='qzfb show '+(i===q.a?'good':'bad');
+  fb.textContent=(i===q.a?'✓ Correct! ':'✗ Not quite. ')+q.ex;
+  document.getElementById('qznext').style.display='block';
+}
+function nextQ(){qI=(qI+1)%qData.length;if(qI===0)qScore=0;renderQ();}
+renderQ();
+
+// ── SCROLL REVEAL ────────────────────────────────────────
+const revObs=new IntersectionObserver((entries)=>{
+  entries.forEach((entry,i)=>{
+    if(entry.isIntersecting){
+      setTimeout(()=>entry.target.classList.add('visible'),i*45);
+      revObs.unobserve(entry.target);
+    }
+  });
+},{threshold:.07,rootMargin:'0px 0px -28px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>revObs.observe(el));
+</script>
+</body>
+</html>
